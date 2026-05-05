@@ -30,6 +30,8 @@ class ProductFilters(BaseModel):
     color_primary: str | None = None
     color_secondary: str | None = None
     q: str | None = None
+    order_by: str | None = None
+    order_dir: str | None = None
 
 
 class PageMeta(BaseModel):

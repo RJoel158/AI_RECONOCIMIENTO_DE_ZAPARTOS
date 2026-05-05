@@ -4,6 +4,14 @@ from sqlalchemy.orm import Session
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductFilters
 
+SORT_FIELDS = {
+    "sku": Product.sku,
+    "brand": Product.brand,
+    "type": Product.type,
+    "color_primary": Product.color_primary,
+    "model_name": Product.model_name,
+}
+
 
 def create_product(db: Session, data: ProductCreate) -> Product:
     product = Product(**data.model_dump())
@@ -39,6 +47,13 @@ def apply_product_filters(query, filters: ProductFilters | None):
                 Product.sku.ilike(f"%{filters.q}%"),
             )
         )
+
+    if filters.order_by in SORT_FIELDS:
+        sort_col = SORT_FIELDS[filters.order_by]
+        if (filters.order_dir or "").lower() == "desc":
+            query = query.order_by(sort_col.desc())
+        else:
+            query = query.order_by(sort_col.asc())
 
     return query
 
