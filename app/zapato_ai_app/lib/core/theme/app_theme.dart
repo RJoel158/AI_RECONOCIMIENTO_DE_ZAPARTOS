@@ -18,7 +18,7 @@ class AppTheme {
         primary: primaryBlack,
         secondary: primaryBlack,
         surface: secondaryWhite,
-        background: secondaryWhite,
+        onSurface: primaryBlack,
       ),
       textTheme: TextTheme(
         displayLarge: TextStyle(
