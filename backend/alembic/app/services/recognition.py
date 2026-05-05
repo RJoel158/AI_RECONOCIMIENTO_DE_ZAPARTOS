@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from pathlib import Path
+from collections import Counter
 from ml.scripts.extractor import ShoeFeatureExtractor
 from ml.scripts.sync_embeddings import sync_embeddings
 
@@ -24,34 +25,51 @@ class RecognitionService:
                 self.sku_map = json.load(f)
 
     def sync_catalog(self):
-        """
-        Trigger a re-sync of embeddings if new photos were uploaded.
-        """
         sync_embeddings("data/captures")
 
-    def recognize(self, image_path: str):
-        """
-        Main recognition logic: Image -> Vector -> Nearest SKU
-        """
+    def _get_best_sku(self, image_path):
+        """Internal helper to get the best SKU for a single image"""
         if self.embeddings is None:
-            return None, "Library not initialized. Please run sync first."
-
-        # 1. Extract vector from the uploaded image
+            return None, 0.0
+            
         target_vector = self.extractor.extract_vector(image_path)
-        
-        # 2. Calculate Cosine Similarity against all reference vectors
-        # (Distance = 1 - similarity)
         distances = np.linalg.norm(self.embeddings - target_vector, axis=1)
-        
-        # 3. Get the index of the closest vector
         best_match_idx = np.argmin(distances)
         best_score = 1 - distances[best_match_idx]
         
-        # 4. Map index back to SKU
-        # We reverse the map {sku: idx} to {idx: sku}
         inv_map = {v: k for k, v in self.sku_map.items()}
-        best_sku = inv_map.get(best_match_idx)
+        return inv_map.get(best_match_idx), best_score
+
+    def recognize_multi_frame(self, image_paths: list[str]):
+        """
+        Implements Consensus Logic:
+        Processes multiple frames and returns the SKU with the highest 
+        combined confidence and frequency.
+        """
+        if not image_paths:
+            return None, 0.0
+
+        results = []
+        for path in image_paths:
+            sku, score = self._get_best_sku(path)
+            if sku:
+                results.append((sku, score))
+
+        if not results:
+            return None, 0.0
+
+        # Voting: Count frequency of each SKU
+        skus = [r[0] for r in results]
+        counts = Counter(skus)
         
-        return best_sku, best_score
+        # We want the SKU that appeared most often, but also has the best avg score
+        # Tie-break: Highest average confidence among the most frequent SKUs
+        most_common_sku, freq = counts.most_common(1)[0]
+        
+        # Calculate average confidence for the winning SKU
+        scores_for_winner = [r[1] for r in results if r[0] == most_common_sku]
+        avg_confidence = np.mean(scores_for_winner)
+
+        return most_common_sku, avg_confidence
 
 recognition_service = RecognitionService()

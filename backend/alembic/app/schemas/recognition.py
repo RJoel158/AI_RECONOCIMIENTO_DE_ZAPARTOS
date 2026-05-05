@@ -22,3 +22,5 @@ class RecognitionResponse(BaseModel):
     candidates: list[RecognitionCandidate] | None = None
     details: ShoeDetailsResponse | None = None
     message: str
+    confidence_avg: float | None = None
+
