@@ -17,6 +17,12 @@
 3. Ejecutar:
    - uvicorn app.main:app --reload
 
+## Cargar catalogo inicial (CSV)
+
+1. Editar data/products.csv y data/stock.csv
+2. Ejecutar:
+   - python tools/import_catalog.py
+
 ## Notas
 
 - El endpoint /health sirve para validar estado
