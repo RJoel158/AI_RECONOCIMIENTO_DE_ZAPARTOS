@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.schemas.recognition import RecognitionResponse
+from backend.alembic.app.schemas.recognition import RecognitionResponse
 
 router = APIRouter(prefix="/recognize", tags=["recognition"])
 

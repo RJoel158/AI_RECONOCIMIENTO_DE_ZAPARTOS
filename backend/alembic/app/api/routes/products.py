@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
-from app.crud.products import (
+from backend.alembic.app.core.database import get_db
+from backend.alembic.app.crud.products import (
     count_products,
     create_product,
     get_product_by_sku,
     list_products,
 )
-from app.schemas.product import (
+from backend.alembic.app.schemas.product import (
     PageMeta,
     ProductCreate,
     ProductFilters,

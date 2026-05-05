@@ -4,10 +4,10 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.core.database import get_db
-from app.crud.captures import create_capture, list_captures
-from app.schemas.capture import CaptureRead
+from backend.alembic.app.core.config import settings
+from backend.alembic.app.core.database import get_db
+from backend.alembic.app.crud.captures import create_capture, list_captures
+from backend.alembic.app.schemas.capture import CaptureRead
 
 router = APIRouter(prefix="/captures", tags=["captures"])
 

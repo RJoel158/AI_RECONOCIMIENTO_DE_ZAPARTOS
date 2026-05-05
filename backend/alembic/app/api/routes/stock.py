@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
-from app.crud.stock import create_stock, get_stock_by_sku
-from app.schemas.stock import StockCreate, StockRead
+from backend.alembic.app.core.database import get_db
+from backend.alembic.app.crud.stock import create_stock, get_stock_by_sku
+from backend.alembic.app.schemas.stock import StockCreate, StockRead
 
 router = APIRouter(prefix="/stock", tags=["stock"])
 

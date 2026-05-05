@@ -4,9 +4,9 @@ import argparse
 import csv
 from pathlib import Path
 
-from app.core.database import SessionLocal
-from app.models.product import Product
-from app.models.stock import Stock
+from backend.alembic.app.core.database import SessionLocal
+from backend.alembic.app.models.product import Product
+from backend.alembic.app.models.stock import Stock
 
 
 def parse_args() -> argparse.Namespace:

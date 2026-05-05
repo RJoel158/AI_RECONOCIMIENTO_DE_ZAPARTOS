@@ -3,9 +3,10 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.core.config import settings
-from app.core.database import Base
-from app.models import capture, product, stock  # noqa: F401
+from backend.alembic.app.core.config import settings
+from backend.alembic.app.core.database import Base
+from backend.alembic.app.models import stock
+from backend.alembic.app.models import capture, product  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

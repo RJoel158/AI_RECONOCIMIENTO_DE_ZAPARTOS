@@ -1,6 +1,6 @@
 from sqlalchemy import Column, DateTime, Integer, String, func
 
-from app.core.database import Base
+from backend.alembic.app.core.database import Base
 
 
 class Capture(Base):

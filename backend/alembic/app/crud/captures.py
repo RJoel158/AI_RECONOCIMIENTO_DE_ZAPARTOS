@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.models.capture import Capture
+from backend.alembic.app.models.capture import Capture
 
 
 def create_capture(

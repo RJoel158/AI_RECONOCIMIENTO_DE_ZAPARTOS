@@ -1,8 +1,8 @@
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductFilters
+from backend.alembic.app.models.product import Product
+from backend.alembic.app.schemas.product import ProductCreate, ProductFilters
 
 SORT_FIELDS = {
     "sku": Product.sku,

@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 
-from app.models.product import Product
-from app.models.stock import Stock
-from app.schemas.stock import StockCreate
+from backend.alembic.app.models.product import Product
+from backend.alembic.app.models.stock import Stock
+from backend.alembic.app.schemas.stock import StockCreate
 
 
 def create_stock(db: Session, data: StockCreate) -> Stock:

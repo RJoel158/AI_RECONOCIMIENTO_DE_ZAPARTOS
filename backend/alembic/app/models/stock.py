@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from backend.alembic.app.core.database import Base
 
 
 class Stock(Base):
