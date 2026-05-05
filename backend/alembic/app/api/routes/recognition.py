@@ -1,11 +1,14 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from pathlib import Path
+import shutil
 
 from backend.alembic.app.schemas.recognition import RecognitionResponse, ShoeDetailsResponse
 from backend.alembic.app.core.database import get_db
 from backend.alembic.app.crud.products import get_product_by_sku, get_similar_products
 from backend.alembic.app.crud.stock import get_stock_by_sku
+from backend.alembic.app.services.recognition import recognition_service
 
 router = APIRouter(prefix="/recognize", tags=["recognition"])
 
@@ -15,16 +18,30 @@ async def recognize_shoe(image: UploadFile = File(...), db: Session = Depends(ge
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Archivo no es imagen")
 
-    # --- INTEGRACIÓN ML (Placeholder) ---
-    # Aquí se llamará al modelo de IA para obtener el SKU
-    detected_sku = "DEMO-SKU-123" # Simulación de reconocimiento
-    # -----------------------------------
+    # 1. Temporarily save the image to process it
+    temp_path = Path("data/temp_rec.jpg")
+    temp_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
 
-    product = get_product_by_sku(db, detected_sku)
+    # 2. Use AI service to recognize SKU
+    sku, score = recognition_service.recognize(str(temp_path))
+    
+    if not sku:
+        return RecognitionResponse(
+            message=f"Error: {score}", # Here 'score' contains the error message
+            candidates=[]
+        )
+
+    # 3. Business logic: fetch product, stock and similar models
+    product = get_product_by_sku(db, sku)
     if not product:
-        return RecognitionResponse(message=f"No se encontró el producto con SKU {detected_sku}", candidates=[])
+        return RecognitionResponse(
+            message=f"AI recognized SKU {sku}, but it's not in the database.",
+            candidates=[]
+        )
 
-    stock_items = get_stock_by_sku(db, detected_sku)
+    stock_items = get_stock_by_sku(db, sku)
     total_stock = sum(item.quantity for item in stock_items)
     
     is_out_of_stock = total_stock == 0
@@ -44,7 +61,7 @@ async def recognize_shoe(image: UploadFile = File(...), db: Session = Depends(ge
             similar_products=similar_products,
             is_out_of_stock=is_out_of_stock
         ),
-        message="Reconocimiento exitoso"
+        message=f"Reconocimiento exitoso (Confianza: {score:.2%})"
     )
 
 
