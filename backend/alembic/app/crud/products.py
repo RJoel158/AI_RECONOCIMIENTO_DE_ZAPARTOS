@@ -73,3 +73,17 @@ def list_products(
     query = db.query(Product)
     query = apply_product_filters(query, filters)
     return query.offset(skip).limit(limit).all()
+
+
+def get_similar_products(db: Session, product: Product, limit: int = 5) -> list[Product]:
+    return (
+        db.query(Product)
+        .filter(
+            Product.type == product.type,
+            Product.color_primary == product.color_primary,
+            Product.id != product.id,
+        )
+        .limit(limit)
+        .all()
+    )
+

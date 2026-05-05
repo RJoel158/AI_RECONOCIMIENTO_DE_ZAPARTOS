@@ -10,6 +10,9 @@ class ProductBase(BaseModel):
     color_secondary: str | None = None
     material: str | None = None
     gender: str | None = None
+    aisle: str | None = None
+    shelf: str | None = None
+    shelf_level: str | None = None
 
 
 class ProductCreate(ProductBase):
