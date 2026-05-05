@@ -27,3 +27,8 @@
 
 - El endpoint /health sirve para validar estado
 - CRUD basico de productos y stock
+
+## Captura de imagenes (dataset)
+
+- POST /captures (multipart) con campos: sku, source, note, image
+- GET /captures?sku=BAT-CA-0001
