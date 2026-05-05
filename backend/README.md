@@ -32,3 +32,7 @@
 
 - POST /captures (multipart) con campos: sku, source, note, image
 - GET /captures?sku=BAT-CA-0001
+
+## Reconocimiento (placeholder)
+
+- POST /recognize (multipart) con campo: image
