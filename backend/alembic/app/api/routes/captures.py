@@ -1,13 +1,14 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.alembic.app.core.config import settings
 from backend.alembic.app.core.database import get_db
 from backend.alembic.app.crud.captures import create_capture, list_captures
 from backend.alembic.app.schemas.capture import CaptureRead
+from backend.alembic.app.services.recognition import recognition_service
 
 router = APIRouter(prefix="/captures", tags=["captures"])
 
@@ -18,6 +19,7 @@ async def create_capture_endpoint(
     source: str | None = None,
     note: str | None = None,
     image: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
     if not image.content_type or not image.content_type.startswith("image/"):
@@ -33,13 +35,19 @@ async def create_capture_endpoint(
     content = await image.read()
     file_path.write_bytes(content)
 
-    return create_capture(
+    capture = create_capture(
         db,
         sku=sku,
         image_path=str(file_path),
         source=source,
         note=note,
     )
+
+    # Auto-sync embeddings after new capture (async).
+    if background_tasks is not None:
+        background_tasks.add_task(recognition_service.sync_catalog)
+
+    return capture
 
 
 @router.get("", response_model=list[CaptureRead])

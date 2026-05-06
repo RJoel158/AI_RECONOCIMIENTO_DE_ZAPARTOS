@@ -32,6 +32,11 @@ class ProductFilters(BaseModel):
     type: str | None = None
     color_primary: str | None = None
     color_secondary: str | None = None
+    material: str | None = None
+    gender: str | None = None
+    aisle: str | None = None
+    shelf: str | None = None
+    shelf_level: str | None = None
     q: str | None = None
     order_by: str | None = None
     order_dir: str | None = None

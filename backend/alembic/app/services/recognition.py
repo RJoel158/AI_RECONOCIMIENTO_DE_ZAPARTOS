@@ -1,9 +1,16 @@
-import torch
-import numpy as np
 from pathlib import Path
 from collections import Counter
-from ml.scripts.extractor import ShoeFeatureExtractor
-from ml.scripts.sync_embeddings import sync_embeddings
+
+try:
+    import numpy as np
+    from ml.scripts.extractor import ShoeFeatureExtractor
+    from ml.scripts.sync_embeddings import sync_embeddings
+    _ML_READY = True
+except Exception:
+    np = None
+    ShoeFeatureExtractor = None
+    sync_embeddings = None
+    _ML_READY = False
 
 class RecognitionService:
     def __init__(self):
@@ -12,12 +19,19 @@ class RecognitionService:
         self.embeddings_path = Path("ml/models/embeddings.npy")
         self.map_path = Path("ml/models/sku_map.json")
         
-        # Initialize Extractor
-        self.extractor = ShoeFeatureExtractor(pretrained=True)
-        self.extractor.eval()
+        self._ml_ready = _ML_READY
+        self.extractor = None
+
+        if self._ml_ready:
+            self.extractor = ShoeFeatureExtractor(pretrained=True)
+            self.extractor.eval()
         
         # Load reference library
-        self.embeddings = np.load(self.embeddings_path) if self.embeddings_path.exists() else None
+        self.embeddings = (
+            np.load(self.embeddings_path)
+            if self._ml_ready and self.embeddings_path.exists()
+            else None
+        )
         self.sku_map = {}
         if self.map_path.exists():
             import json
@@ -25,11 +39,13 @@ class RecognitionService:
                 self.sku_map = json.load(f)
 
     def sync_catalog(self):
+        if not self._ml_ready or not sync_embeddings:
+            return
         sync_embeddings("data/captures")
 
     def _get_best_sku(self, image_path):
         """Internal helper to get the best SKU for a single image"""
-        if self.embeddings is None:
+        if not self._ml_ready or self.embeddings is None or not self.extractor:
             return None, 0.0
             
         target_vector = self.extractor.extract_vector(image_path)
@@ -46,7 +62,7 @@ class RecognitionService:
         Processes multiple frames and returns the SKU with the highest 
         combined confidence and frequency.
         """
-        if not image_paths:
+        if not image_paths or not self._ml_ready:
             return None, 0.0
 
         results = []

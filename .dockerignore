@@ -1,0 +1,13 @@
+.git
+.venv
+.vscode
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+app/
+backend/.env
+backend/.env.*
+backend/alembic/__pycache__
+backend/alembic/versions/__pycache__
+ml/models
+ml/data

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/zapatos"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/zapatos"
     api_title: str = "AI Reconocimiento Zapatos"
     api_version: str = "0.1.0"
     captures_dir: str = "../data/captures"

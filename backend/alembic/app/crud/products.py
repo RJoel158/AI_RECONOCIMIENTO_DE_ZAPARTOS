@@ -10,6 +10,11 @@ SORT_FIELDS = {
     "type": Product.type,
     "color_primary": Product.color_primary,
     "model_name": Product.model_name,
+    "gender": Product.gender,
+    "material": Product.material,
+    "aisle": Product.aisle,
+    "shelf": Product.shelf,
+    "shelf_level": Product.shelf_level,
 }
 
 
@@ -39,6 +44,16 @@ def apply_product_filters(query, filters: ProductFilters | None):
         query = query.filter(Product.color_primary == filters.color_primary)
     if filters.color_secondary:
         query = query.filter(Product.color_secondary == filters.color_secondary)
+    if filters.gender:
+        query = query.filter(Product.gender == filters.gender)
+    if filters.material:
+        query = query.filter(Product.material == filters.material)
+    if filters.aisle:
+        query = query.filter(Product.aisle == filters.aisle)
+    if filters.shelf:
+        query = query.filter(Product.shelf == filters.shelf)
+    if filters.shelf_level:
+        query = query.filter(Product.shelf_level == filters.shelf_level)
     if filters.q:
         query = query.filter(
             or_(
@@ -81,6 +96,7 @@ def get_similar_products(db: Session, product: Product, limit: int = 5) -> list[
         .filter(
             Product.type == product.type,
             Product.color_primary == product.color_primary,
+            Product.brand == product.brand,
             Product.id != product.id,
         )
         .limit(limit)

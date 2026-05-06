@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/welcome/welcome_screen.dart';
 import 'core/theme/app_theme.dart';
+import 'screens/home/home_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system, // Seguir el modo del sistema
-      home: const WelcomeScreen(),
+      home: const HomeScreen(),
       debugShowCheckedModeBanner: false, // Ocultar banner de debug
     );
   }

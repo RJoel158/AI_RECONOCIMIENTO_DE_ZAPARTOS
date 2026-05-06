@@ -1,22 +1,6 @@
-from sqlalchemy import Column, Integer, String, UniqueConstraint, Table, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, UniqueConstraint
 
 from backend.alembic.app.core.database import Base
-
-
-product_materials = Table(
-    "product_materials",
-    Base.metadata,
-    Column("product_id", Integer, ForeignKey("products.id"), primary_key=True),
-    Column("material_id", Integer, ForeignKey("materials.id"), primary_key=True),
-)
-
-
-class Material(Base):
-    __tablename__ = "materials"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(64), nullable=False, unique=True, index=True)
 
 
 class Product(Base):
@@ -30,10 +14,9 @@ class Product(Base):
     type = Column(String(32), nullable=False, index=True)
     color_primary = Column(String(32), nullable=False, index=True)
     color_secondary = Column(String(32), nullable=True, index=True)
+    material = Column(String(64), nullable=True)
     gender = Column(String(32), nullable=True)
     aisle = Column(String(32), nullable=True)
     shelf = Column(String(32), nullable=True)
     shelf_level = Column(String(32), nullable=True)
-
-    materials = relationship("Material", secondary=product_materials, backref="products")
 

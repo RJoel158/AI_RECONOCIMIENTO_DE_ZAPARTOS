@@ -36,3 +36,12 @@
 ## Reconocimiento (placeholder)
 
 - POST /recognize (multipart) con campo: image
+
+## Ejecutar con Docker (recomendado para hosting)
+
+Desde la raiz del repo:
+
+1. Construir imagen:
+   - docker build -t zapatos-api -f backend/Dockerfile .
+2. Ejecutar:
+   - docker run -p 8000:8000 --env-file backend/.env zapatos-api
