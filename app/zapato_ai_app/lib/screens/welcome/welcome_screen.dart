@@ -8,7 +8,7 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryBlack,
+      backgroundColor: AppTheme.ink,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -16,7 +16,7 @@ class WelcomeScreen extends StatelessWidget {
             Text(
               'SHOESLY',
               style: AppTheme.lightTheme.textTheme.displayLarge?.copyWith(
-                color: Colors.white,
+                color: AppTheme.bone,
                 fontSize: 42,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 4,
@@ -31,7 +31,7 @@ class WelcomeScreen extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(30),
-                  color: Colors.white,
+                  color: AppTheme.bone,
                 ),
                 width: 200,
                 height: 60,
@@ -39,7 +39,7 @@ class WelcomeScreen extends StatelessWidget {
                   child: Text(
                     'Get Started',
                     style: TextStyle(
-                      color: AppTheme.primaryBlack,
+                      color: AppTheme.ink,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),

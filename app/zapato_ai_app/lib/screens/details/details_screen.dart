@@ -36,7 +36,7 @@ class DetailsScreen extends StatelessWidget {
                   ? Image.network(
                       product['image_path'],
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.grey[200],
                         child: Center(
                           child: Text(

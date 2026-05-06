@@ -382,7 +382,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      backgroundColor: AppTheme.secondaryWhite,
+      backgroundColor: AppTheme.bone,
     );
   }
 }

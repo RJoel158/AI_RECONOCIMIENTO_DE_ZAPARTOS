@@ -55,7 +55,7 @@ class AppTheme {
         primary: bone,
         secondary: teal,
         surface: ink,
-        background: ink,
+        onSurface: bone,
       ),
       textTheme: GoogleFonts.spaceGroteskTextTheme().copyWith(
         displayLarge: const TextStyle(
