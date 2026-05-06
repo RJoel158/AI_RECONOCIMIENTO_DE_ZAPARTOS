@@ -56,7 +56,7 @@ class DetailsScreen extends StatelessWidget {
                       ),
                     ),
             ),
-            
+
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -73,30 +73,42 @@ class DetailsScreen extends StatelessWidget {
                     style: AppTheme.lightTheme.textTheme.bodyMedium,
                   ),
                   const Divider(height: 30),
-                  
+
                   // WAREHOUSE LOCATION (Crucial part for store staff)
                   Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                          color: Colors.blueGrey[50],
-                          borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "📍 UBICACIÓN EN ALMACÉN",
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey[50],
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "📍 UBICACIÓN EN ALMACÉN",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey,
                           ),
-                          const SizedBox(height: 10),
-                          Text("Pasillo: ${aisle ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
-                          Text("Estante: ${shelf ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
-                          Text("Nivel: ${shelfLevel ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "Pasillo: ${aisle ?? 'N/A'}",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          "Estante: ${shelf ?? 'N/A'}",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          "Nivel: ${shelfLevel ?? 'N/A'}",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // STOCK SECTION
                   Text(
                     "Stock disponible",
@@ -108,16 +120,21 @@ class DetailsScreen extends StatelessWidget {
                     children: stockItems.map((item) {
                       return Chip(
                         label: Text("${item['size']} (${item['quantity']})"),
-                        backgroundColor: item['quantity'] > 0 ? Colors.green[100] : Colors.red[100],
+                        backgroundColor: item['quantity'] > 0
+                            ? Colors.green[100]
+                            : Colors.red[100],
                       );
                     }).toList(),
                   ),
-                  
+
                   if (totalStock == 0) ...[
                     const SizedBox(height: 20),
                     const Text(
                       "⚠️ Este modelo está agotado.",
-                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const Text("Te recomendamos estos modelos similares:"),
                     const SizedBox(height: 10),
@@ -135,8 +152,16 @@ class DetailsScreen extends StatelessWidget {
                               padding: const EdgeInsets.all(8),
                               child: Column(
                                 children: [
-                                  Container(height: 80, width: 80, color: Colors.grey),
-                                  Text(sim['model_name'], style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                  Container(
+                                    height: 80,
+                                    width: 80,
+                                    color: Colors.grey,
+                                  ),
+                                  Text(
+                                    sim['model_name'],
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ],
                               ),
                             ),

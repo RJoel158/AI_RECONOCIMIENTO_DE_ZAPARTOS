@@ -179,10 +179,7 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(path),
-                            fit: BoxFit.cover,
-                          ),
+                          child: Image.file(File(path), fit: BoxFit.cover),
                         ),
                       );
                     },
@@ -213,7 +210,8 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _pickReferenceImage(ImageSource.camera),
+                        onPressed: () =>
+                            _pickReferenceImage(ImageSource.camera),
                         icon: const Icon(Icons.photo_camera),
                         label: const Text('Camara'),
                       ),
