@@ -44,7 +44,9 @@ def load_products(db, csv_path: Path) -> dict[str, int]:
                 "color_primary": (row.get("color_primary") or "").strip(),
                 "color_secondary": (row.get("color_secondary") or "").strip() or None,
                 "material": (row.get("material") or "").strip() or None,
-                "gender": (row.get("gender") or "").strip() or None,
+                "aisle": (row.get("aisle") or "").strip() or None,
+                "shelf": (row.get("shelf") or "").strip() or None,
+                "shelf_level": (row.get("shelf_level") or "").strip() or None,
             }
 
             if product:

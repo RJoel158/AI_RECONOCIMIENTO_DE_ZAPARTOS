@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.alembic.app.core.config import settings
@@ -13,41 +13,46 @@ from backend.alembic.app.services.recognition import recognition_service
 router = APIRouter(prefix="/captures", tags=["captures"])
 
 
-@router.post("", response_model=CaptureRead)
+@router.post("", response_model=list[CaptureRead])
 async def create_capture_endpoint(
-    sku: str,
-    source: str | None = None,
-    note: str | None = None,
-    image: UploadFile = File(...),
+    sku: str = Form(...),
+    source: str | None = Form(None),
+    note: str | None = Form(None),
+    images: list[UploadFile] = File(...),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
-    if not image.content_type or not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Archivo no es imagen")
-
     captures_dir = Path(settings.captures_dir)
     captures_dir.mkdir(parents=True, exist_ok=True)
 
-    suffix = Path(image.filename or "image").suffix
-    filename = f"{sku}_{uuid4().hex}{suffix}"
-    file_path = captures_dir / filename
+    captures: list[CaptureRead] = []
+    for index, image in enumerate(images):
+        if image.content_type and not image.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=400, detail=f"Archivo {index} no es imagen"
+            )
 
-    content = await image.read()
-    file_path.write_bytes(content)
+        suffix = Path(image.filename or "image").suffix
+        filename = f"{sku}_{uuid4().hex}{suffix}"
+        file_path = captures_dir / filename
 
-    capture = create_capture(
-        db,
-        sku=sku,
-        image_path=str(file_path),
-        source=source,
-        note=note,
-    )
+        content = await image.read()
+        file_path.write_bytes(content)
+
+        capture = create_capture(
+            db,
+            sku=sku,
+            image_path=str(file_path),
+            source=source,
+            note=note,
+        )
+        captures.append(capture)
 
     # Auto-sync embeddings after new capture (async).
     if background_tasks is not None:
         background_tasks.add_task(recognition_service.sync_catalog)
 
-    return capture
+    return captures
 
 
 @router.get("", response_model=list[CaptureRead])

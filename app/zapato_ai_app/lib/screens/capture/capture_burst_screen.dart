@@ -3,23 +3,23 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/api/api_service.dart';
-import '../details/details_screen.dart';
+import 'capture_form_screen.dart';
 
-class ScannerScreen extends StatefulWidget {
-  const ScannerScreen({super.key});
+class CaptureBurstScreen extends StatefulWidget {
+  const CaptureBurstScreen({super.key, this.frames = 4});
+
+  final int frames;
 
   @override
-  State<ScannerScreen> createState() => _ScannerScreenState();
+  State<CaptureBurstScreen> createState() => _CaptureBurstScreenState();
 }
 
-class _ScannerScreenState extends State<ScannerScreen> {
-  final ApiService _apiService = ApiService();
+class _CaptureBurstScreenState extends State<CaptureBurstScreen> {
   CameraController? _controller;
-  final List<String> _capturedImages = [];
   bool _isReady = false;
-  bool _isProcessing = false;
+  bool _isCapturing = false;
   int _captured = 0;
+  final List<String> _paths = [];
 
   @override
   void initState() {
@@ -29,14 +29,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
+    if (cameras.isEmpty) {
+      return;
+    }
 
     final controller = CameraController(
       cameras.first,
       ResolutionPreset.medium,
       enableAudio: false,
     );
+
     await controller.initialize();
+
     if (!mounted) return;
     setState(() {
       _controller = controller;
@@ -50,17 +54,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
     super.dispose();
   }
 
-  Future<void> _captureBurst({int frames = 4}) async {
-    if (_controller == null || !_isReady || _isProcessing) return;
+  Future<void> _captureBurst() async {
+    if (_controller == null || !_isReady || _isCapturing) return;
 
     setState(() {
-      _capturedImages.clear();
+      _isCapturing = true;
       _captured = 0;
+      _paths.clear();
     });
 
-    for (int i = 0; i < frames; i++) {
+    for (int i = 0; i < widget.frames; i++) {
       final file = await _controller!.takePicture();
-      _capturedImages.add(file.path);
+      _paths.add(file.path);
       if (!mounted) return;
       setState(() {
         _captured = i + 1;
@@ -68,42 +73,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
       await Future.delayed(const Duration(milliseconds: 250));
     }
 
-    await _processAndRecognize();
-  }
+    if (!mounted) return;
+    setState(() {
+      _isCapturing = false;
+    });
 
-  Future<void> _processAndRecognize() async {
-    setState(() => _isProcessing = true);
-    try {
-      final result = await _apiService.recognizeShoe(_capturedImages);
-
-      if (result['details'] != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DetailsScreen(
-              productData: result['details'] as Map<String, dynamic>,
-            ),
-          ),
-        );
-      } else if (mounted) {
-        _showError("No se pudo reconocer el modelo. Inténtalo de nuevo.");
-      }
-    } catch (e) {
-      if (mounted) {
-        _showError("Error de conexión: $e");
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _captured = 0;
-        });
-      }
-    }
-  }
-
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CaptureFormScreen(imagePaths: _paths),
+      ),
+    );
   }
 
   @override
@@ -116,8 +96,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
             Positioned.fill(child: CameraPreview(_controller!))
           else
             const Center(child: CircularProgressIndicator()),
-
-          // Top Controls
           Positioned(
             top: 50,
             left: 20,
@@ -126,8 +104,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
               onPressed: () => Navigator.pop(context),
             ),
           ),
-
-          // Capture Button
           Positioned(
             bottom: 60,
             left: 0,
@@ -135,12 +111,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
             child: Column(
               children: [
                 Text(
-                  _isProcessing ? 'Procesando...' : 'Escaneo ${_captured}/4',
+                  _isCapturing
+                      ? 'Capturando $_captured/${widget.frames}'
+                      : 'Presiona para capturar varias vistas',
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
                 const SizedBox(height: 16),
                 GestureDetector(
-                  onTap: _isProcessing ? null : () => _captureBurst(frames: 4),
+                  onTap: _isCapturing ? null : _captureBurst,
                   child: Container(
                     width: 84,
                     height: 84,
@@ -153,7 +131,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         width: 62,
                         height: 62,
                         decoration: BoxDecoration(
-                          color: _isProcessing ? Colors.grey : Colors.white,
+                          color: _isCapturing ? Colors.grey : Colors.white,
                           shape: BoxShape.circle,
                         ),
                       ),

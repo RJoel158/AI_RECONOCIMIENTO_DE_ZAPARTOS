@@ -7,7 +7,6 @@ class Product {
   final String colorPrimary;
   final String? colorSecondary;
   final String? material;
-  final String? gender;
   final String? aisle;
   final String? shelf;
   final String? shelfLevel;
@@ -21,7 +20,6 @@ class Product {
     required this.colorPrimary,
     this.colorSecondary,
     this.material,
-    this.gender,
     this.aisle,
     this.shelf,
     this.shelfLevel,
@@ -37,7 +35,6 @@ class Product {
       colorPrimary: json['color_primary'] as String,
       colorSecondary: json['color_secondary'] as String?,
       material: json['material'] as String?,
-      gender: json['gender'] as String?,
       aisle: json['aisle'] as String?,
       shelf: json['shelf'] as String?,
       shelfLevel: json['shelf_level'] as String?,

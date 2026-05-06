@@ -67,7 +67,6 @@ class ApiService {
     String? colorPrimary,
     String? colorSecondary,
     String? material,
-    String? gender,
     String? aisle,
     String? shelf,
     String? shelfLevel,
@@ -91,7 +90,6 @@ class ApiService {
     addIfPresent('color_primary', colorPrimary);
     addIfPresent('color_secondary', colorSecondary);
     addIfPresent('material', material);
-    addIfPresent('gender', gender);
     addIfPresent('aisle', aisle);
     addIfPresent('shelf', shelf);
     addIfPresent('shelf_level', shelfLevel);
@@ -139,9 +137,9 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createCapture({
+  Future<List<dynamic>> createCapture({
     required String sku,
-    required String imagePath,
+    required List<String> imagePaths,
     String? source,
     String? note,
   }) async {
@@ -156,13 +154,15 @@ class ApiService {
     if (note != null && note.trim().isNotEmpty) {
       request.fields['note'] = note.trim();
     }
-    request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+    for (final path in imagePaths) {
+      request.files.add(await http.MultipartFile.fromPath('images', path));
+    }
 
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return json.decode(response.body) as Map<String, dynamic>;
+        return json.decode(response.body) as List<dynamic>;
       }
       throw Exception(
         'Error del servidor: ${response.statusCode} - ${response.body}',

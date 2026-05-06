@@ -23,7 +23,7 @@ async def recognize_shoe(images: List[UploadFile] = File(...), db: Session = Dep
     
     try:
         for i, image in enumerate(images):
-            if not image.content_type or not image.content_type.startswith("image/"):
+            if image.content_type and not image.content_type.startswith("image/"):
                 raise HTTPException(status_code=400, detail=f"Archivo {i} no es imagen")
             
             img_path = temp_dir / f"frame_{i}.jpg"

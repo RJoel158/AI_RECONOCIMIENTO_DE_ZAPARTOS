@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-
 import '../../core/api/api_service.dart';
 
 class CaptureFormScreen extends StatefulWidget {
-  const CaptureFormScreen({super.key});
+  const CaptureFormScreen({super.key, required this.imagePaths});
+
+  final List<String> imagePaths;
 
   @override
   State<CaptureFormScreen> createState() => _CaptureFormScreenState();
@@ -12,8 +12,6 @@ class CaptureFormScreen extends StatefulWidget {
 
 class _CaptureFormScreenState extends State<CaptureFormScreen> {
   final ApiService _apiService = ApiService();
-  final ImagePicker _picker = ImagePicker();
-
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _skuController = TextEditingController();
@@ -24,12 +22,10 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
   final TextEditingController _colorSecondaryController =
       TextEditingController();
   final TextEditingController _materialController = TextEditingController();
-  final TextEditingController _genderController = TextEditingController();
   final TextEditingController _aisleController = TextEditingController();
   final TextEditingController _shelfController = TextEditingController();
   final TextEditingController _shelfLevelController = TextEditingController();
 
-  String? _imagePath;
   bool _isSaving = false;
 
   @override
@@ -41,24 +37,10 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
     _colorPrimaryController.dispose();
     _colorSecondaryController.dispose();
     _materialController.dispose();
-    _genderController.dispose();
     _aisleController.dispose();
     _shelfController.dispose();
     _shelfLevelController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final XFile? photo = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 85,
-    );
-
-    if (photo != null) {
-      setState(() {
-        _imagePath = photo.path;
-      });
-    }
   }
 
   Future<void> _saveCapture() async {
@@ -66,8 +48,8 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
       return;
     }
 
-    if (_imagePath == null) {
-      _showSnack('Debes capturar una imagen');
+    if (widget.imagePaths.isEmpty) {
+      _showSnack('Debes capturar imagenes');
       return;
     }
 
@@ -82,7 +64,6 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
         'color_primary': _colorPrimaryController.text.trim(),
         'color_secondary': _colorSecondaryController.text.trim(),
         'material': _materialController.text.trim(),
-        'gender': _genderController.text.trim(),
         'aisle': _aisleController.text.trim(),
         'shelf': _shelfController.text.trim(),
         'shelf_level': _shelfLevelController.text.trim(),
@@ -91,7 +72,7 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
       await _apiService.createProduct(payload);
       await _apiService.createCapture(
         sku: _skuController.text.trim(),
-        imagePath: _imagePath!,
+        imagePaths: widget.imagePaths,
         source: 'app',
       );
 
@@ -151,18 +132,35 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.camera_alt),
-                  label: Text(
-                    _imagePath == null ? 'Capturar imagen' : 'Repetir captura',
-                  ),
-                  onPressed: _pickImage,
+                Text(
+                  'Capturas: ${widget.imagePaths.length}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                if (_imagePath != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 16),
-                    child: Text('Imagen lista: $_imagePath'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 80,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (context, index) {
+                      final path = widget.imagePaths[index];
+                      return Container(
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Foto ${index + 1}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemCount: widget.imagePaths.length,
                   ),
+                ),
                 _buildField('SKU', _skuController, requiredField: true),
                 _buildField('Marca', _brandController, requiredField: true),
                 _buildField('Modelo', _modelController, requiredField: true),
@@ -174,7 +172,6 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                 ),
                 _buildField('Color secundario', _colorSecondaryController),
                 _buildField('Material', _materialController),
-                _buildField('Genero', _genderController),
                 _buildField('Pasillo', _aisleController),
                 _buildField('Estante', _shelfController),
                 _buildField('Nivel', _shelfLevelController),

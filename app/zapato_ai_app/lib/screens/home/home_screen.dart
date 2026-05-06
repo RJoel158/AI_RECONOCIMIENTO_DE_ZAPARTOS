@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/product.dart';
-import '../capture/capture_form_screen.dart';
+import '../capture/capture_burst_screen.dart';
 import '../details/details_screen.dart';
 import '../scanner/scanner_screen.dart';
 
@@ -51,7 +51,6 @@ class _HomeScreenState extends State<HomeScreen> {
         colorPrimary: _filters['color_primary'],
         colorSecondary: _filters['color_secondary'],
         material: _filters['material'],
-        gender: _filters['gender'],
         aisle: _filters['aisle'],
         shelf: _filters['shelf'],
         shelfLevel: _filters['shelf_level'],
@@ -117,7 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final materialController = TextEditingController(
       text: _filters['material'],
     );
-    final genderController = TextEditingController(text: _filters['gender']);
     final aisleController = TextEditingController(text: _filters['aisle']);
     final shelfController = TextEditingController(text: _filters['shelf']);
     final shelfLevelController = TextEditingController(
@@ -149,7 +147,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildField('Color primario', colorPrimaryController),
                 _buildField('Color secundario', colorSecondaryController),
                 _buildField('Material', materialController),
-                _buildField('Genero', genderController),
                 _buildField('Pasillo', aisleController),
                 _buildField('Estante', shelfController),
                 _buildField('Nivel', shelfLevelController),
@@ -177,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               .text
                               .trim();
                           _filters['material'] = materialController.text.trim();
-                          _filters['gender'] = genderController.text.trim();
                           _filters['aisle'] = aisleController.text.trim();
                           _filters['shelf'] = shelfController.text.trim();
                           _filters['shelf_level'] = shelfLevelController.text
@@ -202,7 +198,6 @@ class _HomeScreenState extends State<HomeScreen> {
       colorPrimaryController.dispose();
       colorSecondaryController.dispose();
       materialController.dispose();
-      genderController.dispose();
       aisleController.dispose();
       shelfController.dispose();
       shelfLevelController.dispose();
@@ -345,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const CaptureFormScreen(),
+                        builder: (context) => const CaptureBurstScreen(),
                       ),
                     );
                   },

@@ -27,7 +27,9 @@ def upgrade() -> None:
     sa.Column('color_primary', sa.String(length=32), nullable=False),
     sa.Column('color_secondary', sa.String(length=32), nullable=True),
     sa.Column('material', sa.String(length=64), nullable=True),
-    sa.Column('gender', sa.String(length=32), nullable=True),
+    sa.Column('aisle', sa.String(length=32), nullable=True),
+    sa.Column('shelf', sa.String(length=32), nullable=True),
+    sa.Column('shelf_level', sa.String(length=32), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('sku', name='uq_products_sku')
     )

@@ -11,7 +11,6 @@ class ProductBase(BaseModel):
     color_primary: str
     color_secondary: str | None = None
     material: str | None = None
-    gender: str | None = None
     aisle: str | None = None
     shelf: str | None = None
     shelf_level: str | None = None
@@ -35,7 +34,6 @@ class ProductFilters(BaseModel):
     color_primary: str | None = None
     color_secondary: str | None = None
     material: str | None = None
-    gender: str | None = None
     aisle: str | None = None
     shelf: str | None = None
     shelf_level: str | None = None

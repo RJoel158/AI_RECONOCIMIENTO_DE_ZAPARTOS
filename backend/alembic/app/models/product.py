@@ -15,7 +15,6 @@ class Product(Base):
     color_primary = Column(String(32), nullable=False, index=True)
     color_secondary = Column(String(32), nullable=True, index=True)
     material = Column(String(64), nullable=True)
-    gender = Column(String(32), nullable=True)
     aisle = Column(String(32), nullable=True)
     shelf = Column(String(32), nullable=True)
     shelf_level = Column(String(32), nullable=True)
