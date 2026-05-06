@@ -1,7 +1,9 @@
 from pydantic import BaseModel
+from pydantic import ConfigDict
 
 
 class ProductBase(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     sku: str
     brand: str
     model_name: str
@@ -22,11 +24,11 @@ class ProductCreate(ProductBase):
 class ProductRead(ProductBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 class ProductFilters(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     sku: str | None = None
     brand: str | None = None
     type: str | None = None
@@ -43,6 +45,7 @@ class ProductFilters(BaseModel):
 
 
 class PageMeta(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     total: int
     limit: int
     offset: int
@@ -51,5 +54,6 @@ class PageMeta(BaseModel):
 
 
 class ProductPage(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     items: list[ProductRead]
     meta: PageMeta
