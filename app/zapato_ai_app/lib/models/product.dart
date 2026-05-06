@@ -10,6 +10,7 @@ class Product {
   final String? aisle;
   final String? shelf;
   final String? shelfLevel;
+  final String? imagePath;
 
   Product({
     required this.id,
@@ -23,6 +24,7 @@ class Product {
     this.aisle,
     this.shelf,
     this.shelfLevel,
+    this.imagePath,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Product {
       aisle: json['aisle'] as String?,
       shelf: json['shelf'] as String?,
       shelfLevel: json['shelf_level'] as String?,
+      imagePath: json['image_path'] as String?,
     );
   }
 }

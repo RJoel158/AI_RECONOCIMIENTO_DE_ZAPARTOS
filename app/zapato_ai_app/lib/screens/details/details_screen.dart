@@ -28,17 +28,33 @@ class DetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image (Placeholder)
-            Container(
+            // Product Image
+            SizedBox(
               height: 300,
               width: double.infinity,
-              color: Colors.grey[200],
-              child: Center(
-                child: Text(
-                  "Imagen: ${product['sku']}",
-                  style: const TextStyle(fontSize: 20),
-                ),
-              ),
+              child: product['image_path'] != null
+                  ? Image.network(
+                      product['image_path'],
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: Center(
+                          child: Text(
+                            "Imagen: ${product['sku']}",
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Text(
+                          "Imagen: ${product['sku']}",
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                      ),
+                    ),
             ),
             
             Padding(

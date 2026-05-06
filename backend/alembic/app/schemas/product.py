@@ -14,6 +14,7 @@ class ProductBase(BaseModel):
     aisle: str | None = None
     shelf: str | None = None
     shelf_level: str | None = None
+    image_path: str | None = None
 
 
 class ProductCreate(ProductBase):

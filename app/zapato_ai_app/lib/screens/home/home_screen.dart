@@ -268,10 +268,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        product.sku,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                        child: product.imagePath == null
+                            ? Text(
+                                product.sku,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              )
+                            : ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(16),
+                                ),
+                                child: Image.network(
+                                  product.imagePath!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  errorBuilder: (_, __, ___) => Text(
+                                    product.sku,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
                     ),
                   ),
                 ),

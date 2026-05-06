@@ -18,4 +18,5 @@ class Product(Base):
     aisle = Column(String(32), nullable=True)
     shelf = Column(String(32), nullable=True)
     shelf_level = Column(String(32), nullable=True)
+    image_path = Column(String(256), nullable=True)
 

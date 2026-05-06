@@ -29,6 +29,14 @@ def get_product_by_sku(db: Session, sku: str) -> Product | None:
     return db.query(Product).filter(Product.sku == sku).first()
 
 
+def update_product_image(db: Session, product: Product, image_path: str) -> Product:
+    product.image_path = image_path
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
 def apply_product_filters(query, filters: ProductFilters | None):
     if not filters:
         return query

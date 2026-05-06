@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../../core/api/api_service.dart';
 
 class CaptureFormScreen extends StatefulWidget {
@@ -12,6 +16,7 @@ class CaptureFormScreen extends StatefulWidget {
 
 class _CaptureFormScreenState extends State<CaptureFormScreen> {
   final ApiService _apiService = ApiService();
+  final ImagePicker _picker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _skuController = TextEditingController();
@@ -26,6 +31,7 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
   final TextEditingController _shelfController = TextEditingController();
   final TextEditingController _shelfLevelController = TextEditingController();
 
+  String? _referenceImagePath;
   bool _isSaving = false;
 
   @override
@@ -53,6 +59,11 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
       return;
     }
 
+    if (_referenceImagePath == null) {
+      _showSnack('Selecciona una imagen referencial');
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -70,6 +81,10 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
       };
 
       await _apiService.createProduct(payload);
+      await _apiService.uploadProductImage(
+        sku: _skuController.text.trim(),
+        imagePath: _referenceImagePath!,
+      );
       await _apiService.createCapture(
         sku: _skuController.text.trim(),
         imagePaths: widget.imagePaths,
@@ -120,6 +135,19 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
     );
   }
 
+  Future<void> _pickReferenceImage(ImageSource source) async {
+    final XFile? photo = await _picker.pickImage(
+      source: source,
+      imageQuality: 85,
+    );
+
+    if (photo != null) {
+      setState(() {
+        _referenceImagePath = photo.path;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -149,10 +177,11 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                           color: Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Center(
-                          child: Text(
-                            'Foto ${index + 1}',
-                            style: const TextStyle(fontSize: 12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            File(path),
+                            fit: BoxFit.cover,
                           ),
                         ),
                       );
@@ -161,6 +190,46 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                     itemCount: widget.imagePaths.length,
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Imagen referencial (para el catalogo)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                if (_referenceImagePath != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.file(
+                        File(_referenceImagePath!),
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickReferenceImage(ImageSource.camera),
+                        icon: const Icon(Icons.photo_camera),
+                        label: const Text('Camara'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _pickReferenceImage(ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library),
+                        label: const Text('Galeria'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 _buildField('SKU', _skuController, requiredField: true),
                 _buildField('Marca', _brandController, requiredField: true),
                 _buildField('Modelo', _modelController, requiredField: true),

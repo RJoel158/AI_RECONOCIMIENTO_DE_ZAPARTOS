@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.alembic.app.core.database import get_db
+from backend.alembic.app.core.config import settings
 from backend.alembic.app.crud.products import (
     count_products,
     create_product,
     get_product_by_sku,
     list_products,
+    update_product_image,
 )
 from backend.alembic.app.schemas.product import (
     PageMeta,
@@ -54,3 +58,32 @@ def get_product_endpoint(sku: str, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status_code=404, detail="SKU no encontrado")
     return product
+
+
+@router.post("/{sku}/image", response_model=ProductRead)
+async def upload_product_image(
+    sku: str,
+    request: Request,
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    product = get_product_by_sku(db, sku)
+    if not product:
+        raise HTTPException(status_code=404, detail="SKU no encontrado")
+
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Archivo no es imagen")
+
+    images_dir = Path(settings.product_images_dir)
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    suffix = Path(image.filename or "image").suffix
+    filename = f"{sku}{suffix}"
+    file_path = images_dir / filename
+
+    content = await image.read()
+    file_path.write_bytes(content)
+
+    base_url = str(request.base_url).rstrip("/")
+    image_url = f"{base_url}/media/{filename}"
+    return update_product_image(db, product, image_url)

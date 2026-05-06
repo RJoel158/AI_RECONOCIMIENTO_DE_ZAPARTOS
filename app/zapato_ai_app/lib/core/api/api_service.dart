@@ -137,6 +137,34 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> uploadProductImage({
+    required String sku,
+    required String imagePath,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/products/$sku/image'),
+    );
+    request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+
+    try {
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception(
+        'Error del servidor: ${response.statusCode} - ${response.body}',
+      );
+    } on SocketException {
+      throw Exception('Sin conexión a Internet');
+    } on FormatException {
+      throw Exception('Respuesta del servidor no válida');
+    } catch (e) {
+      throw Exception('Error desconocido: $e');
+    }
+  }
+
   Future<List<dynamic>> createCapture({
     required String sku,
     required List<String> imagePaths,
