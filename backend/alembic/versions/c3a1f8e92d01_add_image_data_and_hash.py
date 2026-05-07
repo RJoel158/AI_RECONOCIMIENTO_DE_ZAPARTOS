@@ -1,4 +1,4 @@
-"""add image_data and image_hash columns
+"""add image_data and image_embedding columns
 
 Revision ID: c3a1f8e92d01
 Revises: 2bc4531c97bb
@@ -17,9 +17,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column('products', sa.Column('image_data', sa.Text(), nullable=True))
-    op.add_column('products', sa.Column('image_hash', sa.String(length=16), nullable=True))
+    op.add_column('products', sa.Column('image_embedding', sa.Text(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column('products', 'image_hash')
+    op.drop_column('products', 'image_embedding')
     op.drop_column('products', 'image_data')

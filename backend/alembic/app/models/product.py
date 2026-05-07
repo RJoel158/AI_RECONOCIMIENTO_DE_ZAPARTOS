@@ -19,5 +19,5 @@ class Product(Base):
     shelf = Column(String(32), nullable=True)
     shelf_level = Column(String(32), nullable=True)
     image_path = Column(String(256), nullable=True)
-    image_data = Column(Text, nullable=True)
-    image_hash = Column(String(16), nullable=True)
+    image_data = Column(Text, nullable=True)         # base64 image stored in DB
+    image_embedding = Column(Text, nullable=True)     # CLIP 512D embedding as JSON

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     api_version: str = "0.1.0"
     captures_dir: str = "../data/captures"
     product_images_dir: str = "../data/product_images"
+    hf_api_token: str = ""  # HuggingFace API token for CLIP embeddings
 
     class Config:
         env_prefix = ""

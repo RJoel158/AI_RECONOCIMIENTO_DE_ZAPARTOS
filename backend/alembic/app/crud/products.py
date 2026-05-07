@@ -42,12 +42,12 @@ def update_product_image_data(
     product: Product,
     image_path: str,
     image_data: str,
-    image_hash: str,
+    image_embedding: str,
 ) -> Product:
-    """Store image as base64 in DB along with its pHash for recognition."""
+    """Store image as base64 in DB along with its CLIP embedding."""
     product.image_path = image_path
     product.image_data = image_data
-    product.image_hash = image_hash
+    product.image_embedding = image_embedding
     db.add(product)
     db.commit()
     db.refresh(product)

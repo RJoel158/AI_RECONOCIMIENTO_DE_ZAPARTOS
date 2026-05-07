@@ -15,7 +15,7 @@ from backend.alembic.app.services.recognition import recognition_service
 
 router = APIRouter(prefix="/recognize", tags=["recognition"])
 
-# pHash similarity: 1.0 = identical, 0.92 ≈ Hamming distance 5/64
+# CLIP cosine similarity threshold for direct match
 DIRECT_MATCH_THRESHOLD = 0.85
 
 
@@ -23,7 +23,7 @@ DIRECT_MATCH_THRESHOLD = 0.85
 async def recognize_shoe(
     images: List[UploadFile] = File(...), db: Session = Depends(get_db)
 ):
-    # 1. Read all frame bytes (no filesystem writes)
+    # 1. Read all frame bytes directly (no filesystem)
     frame_bytes_list: list[bytes] = []
     for i, image in enumerate(images):
         if image.content_type and not image.content_type.startswith("image/"):
@@ -33,33 +33,38 @@ async def recognize_shoe(
         content = await image.read()
         frame_bytes_list.append(content)
 
-    # 2. Get all product hashes from DB
-    products_with_hash = (
-        db.query(Product.sku, Product.image_hash)
-        .filter(Product.image_hash.isnot(None), Product.image_hash != "")
+    # 2. Get all product embeddings from DB
+    products_with_embedding = (
+        db.query(Product.sku, Product.image_embedding)
+        .filter(
+            Product.image_embedding.isnot(None),
+            Product.image_embedding != "",
+        )
         .all()
     )
 
-    if not products_with_hash:
+    if not products_with_embedding:
         return RecognitionResponse(
-            message="No hay productos con imagen registrada para comparar.",
+            message="No hay productos con imagen registrada. Registra productos primero.",
             candidates=[],
         )
 
-    product_hashes = [(p.sku, p.image_hash) for p in products_with_hash]
+    product_embeddings = [
+        (p.sku, p.image_embedding) for p in products_with_embedding
+    ]
 
-    # 3. Run pHash recognition
+    # 3. Run CLIP recognition
     results = recognition_service.recognize_from_frames(
-        frame_bytes_list, product_hashes
+        frame_bytes_list, product_embeddings
     )
 
     if not results:
         return RecognitionResponse(
-            message="No se pudo procesar las imágenes capturadas.",
+            message="No se pudo procesar las imágenes. Verifica el token de HuggingFace.",
             candidates=[],
         )
 
-    # 4. Build candidates list
+    # 4. Build candidates
     candidates = []
     for sku, score in results:
         product = get_product_by_sku(db, sku)
@@ -72,7 +77,7 @@ async def recognize_shoe(
             candidates=[],
         )
 
-    # 5. If top candidate is a strong match, return full details
+    # 5. If top candidate is strong, return full details
     best_sku = candidates[0].sku
     best_score = candidates[0].score
     details = None

@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -22,7 +23,7 @@ from backend.alembic.app.schemas.product import (
     ProductPage,
     ProductRead,
 )
-from backend.alembic.app.services.recognition import compute_phash
+from backend.alembic.app.services.clip_service import get_embedding, embedding_to_json
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -124,8 +125,9 @@ async def upload_product_image(
     # Read image bytes
     content = await image.read()
 
-    # Compute perceptual hash
-    phash = compute_phash(content) or ""
+    # Get CLIP embedding from HuggingFace (async-safe since it's I/O)
+    embedding = get_embedding(content)
+    embedding_json = embedding_to_json(embedding) if embedding else ""
 
     # Encode as base64 for DB storage
     b64 = base64.b64encode(content).decode("utf-8")
@@ -134,7 +136,7 @@ async def upload_product_image(
     base_url = str(request.base_url).rstrip("/")
     image_url = f"{base_url}/products/{sku}/image"
 
-    return update_product_image_data(db, product, image_url, b64, phash)
+    return update_product_image_data(db, product, image_url, b64, embedding_json)
 
 
 @router.get("/{sku}/image")
