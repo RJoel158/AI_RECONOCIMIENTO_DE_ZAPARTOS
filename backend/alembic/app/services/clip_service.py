@@ -1,8 +1,9 @@
 """
-CLIP embedding service via HuggingFace Inference API.
+Image embedding service via HuggingFace Inference API.
 
-Sends images to HuggingFace's hosted CLIP model and receives
-512-dimensional embeddings that capture the semantic visual content.
+Uses google/vit-base-patch16-224 for image feature extraction.
+This model is natively supported by HuggingFace's serverless API
+and returns 768-dimensional embeddings for any image.
 """
 
 import io
@@ -16,8 +17,8 @@ from PIL import Image
 
 from backend.alembic.app.core.config import settings
 
-# Use the /models/ endpoint (NOT /pipeline/)
-HF_API_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
+# google/vit-base-patch16-224 — supported for image feature extraction
+HF_API_URL = "https://api-inference.huggingface.co/models/google/vit-base-patch16-224"
 
 
 def _get_headers() -> dict:
@@ -26,10 +27,8 @@ def _get_headers() -> dict:
     if not token:
         print("[CLIP] ERROR: HF_API_TOKEN not set")
         return {}
-    print(f"[CLIP] Token present: {token[:10]}...")
-    return {
-        "Authorization": f"Bearer {token}",
-    }
+    print(f"[CLIP] Token: {token[:10]}...")
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _prepare_image(image_bytes: bytes, max_size: int = 384) -> bytes:
@@ -46,8 +45,9 @@ def _prepare_image(image_bytes: bytes, max_size: int = 384) -> bytes:
         buf = io.BytesIO()
         img.save(buf, "JPEG", quality=85)
         buf.seek(0)
-        print(f"[CLIP] Image prepared: {img.size}, {buf.getbuffer().nbytes} bytes")
-        return buf.read()
+        result = buf.read()
+        print(f"[CLIP] Image prepared: {img.size}, {len(result)} bytes")
+        return result
     except Exception as e:
         print(f"[CLIP] Image prep failed: {e}")
         return image_bytes
@@ -56,8 +56,6 @@ def _prepare_image(image_bytes: bytes, max_size: int = 384) -> bytes:
 def get_embedding(image_bytes: bytes) -> Optional[list[float]]:
     """
     Get image embedding via HuggingFace Inference API.
-
-    Tries the feature-extraction approach first.
     Returns a list of floats (embedding vector), or None on failure.
     """
     headers = _get_headers()
@@ -66,25 +64,22 @@ def get_embedding(image_bytes: bytes) -> Optional[list[float]]:
 
     prepared = _prepare_image(image_bytes)
 
-    # Attempt 1: Send image as binary for feature extraction
     for attempt in range(3):
         try:
-            print(f"[CLIP] Attempt {attempt + 1}: POST to {HF_API_URL}")
+            print(f"[CLIP] Attempt {attempt + 1}: POST {HF_API_URL}")
             response = requests.post(
                 HF_API_URL,
                 headers=headers,
                 data=prepared,
                 timeout=60,
             )
-
-            print(f"[CLIP] Response status: {response.status_code}")
+            print(f"[CLIP] Status: {response.status_code}")
 
             if response.status_code == 503:
-                # Model loading
                 body = response.json()
-                wait_time = body.get("estimated_time", 20)
-                print(f"[CLIP] Model loading, waiting {wait_time}s...")
-                time.sleep(min(wait_time, 30))
+                wait = min(body.get("estimated_time", 20), 30)
+                print(f"[CLIP] Model loading, waiting {wait}s...")
+                time.sleep(wait)
                 continue
 
             if response.status_code == 429:
@@ -93,41 +88,25 @@ def get_embedding(image_bytes: bytes) -> Optional[list[float]]:
                 continue
 
             if response.status_code != 200:
-                print(f"[CLIP] Error {response.status_code}: {response.text[:500]}")
-                # Try alternative URL on first failure
-                if attempt == 0:
-                    print("[CLIP] Trying alternative pipeline URL...")
-                    alt_url = "https://api-inference.huggingface.co/pipeline/feature-extraction/openai/clip-vit-base-patch32"
-                    response = requests.post(
-                        alt_url,
-                        headers=headers,
-                        data=prepared,
-                        timeout=60,
-                    )
-                    print(f"[CLIP] Alt response: {response.status_code}")
-                    if response.status_code != 200:
-                        print(f"[CLIP] Alt error: {response.text[:500]}")
-                        continue
-                else:
-                    continue
+                print(f"[CLIP] Error: {response.text[:300]}")
+                continue
 
             result = response.json()
-            print(f"[CLIP] Response type: {type(result).__name__}, preview: {str(result)[:200]}")
+            print(f"[CLIP] Response type: {type(result).__name__}")
 
-            # Parse the embedding from the response
             embedding = _extract_embedding(result)
             if embedding:
-                print(f"[CLIP] SUCCESS: Got {len(embedding)}-dim embedding")
+                print(f"[CLIP] SUCCESS: {len(embedding)}-dim embedding")
                 return embedding
             else:
-                print(f"[CLIP] Could not extract embedding from response")
+                print(f"[CLIP] Could not extract embedding. Preview: {str(result)[:200]}")
                 return None
 
         except requests.exceptions.Timeout:
-            print(f"[CLIP] Timeout on attempt {attempt + 1}")
+            print(f"[CLIP] Timeout attempt {attempt + 1}")
             continue
         except Exception as e:
-            print(f"[CLIP] Error on attempt {attempt + 1}: {e}")
+            print(f"[CLIP] Error attempt {attempt + 1}: {e}")
             continue
 
     print("[CLIP] All attempts failed")
@@ -136,45 +115,39 @@ def get_embedding(image_bytes: bytes) -> Optional[list[float]]:
 
 def _extract_embedding(result) -> Optional[list[float]]:
     """
-    Extract a 1D embedding vector from various HuggingFace response formats.
+    Extract a 1D embedding vector from HuggingFace response.
 
-    The API can return different formats:
-    - [float, float, ...] — direct 1D vector
-    - [[float, float, ...]] — wrapped in an outer list
-    - [[[float, ...]]] — doubly wrapped (patch tokens)
+    ViT returns: [[patch_1_768, patch_2_768, ...]] — list of patch embeddings.
+    We use the FIRST token ([CLS] token) as the global image representation.
+    If it's just a 1D vector, use it directly.
     """
     if not result:
         return None
 
     if isinstance(result, dict):
-        # Error response
         if "error" in result:
             print(f"[CLIP] API error: {result['error']}")
-            return None
         return None
 
     if isinstance(result, list):
-        # Case: [float, float, ...]
+        # Case 1: [float, float, ...] — direct 1D vector
         if len(result) > 0 and isinstance(result[0], (int, float)):
             return [float(x) for x in result]
 
-        # Case: [[float, float, ...]]
+        # Case 2: [[float, float, ...]] — one embedding wrapped
         if len(result) > 0 and isinstance(result[0], list):
             inner = result[0]
+
+            # [[float, float, ...]] — 1D vector wrapped
             if len(inner) > 0 and isinstance(inner[0], (int, float)):
                 return [float(x) for x in inner]
 
-            # Case: [[[float, ...]]] — average all patch tokens into one vector
+            # [[[float, ...], [float, ...], ...]] — patch tokens
+            # Use first token (CLS) as global representation
             if len(inner) > 0 and isinstance(inner[0], list):
-                print(f"[CLIP] Got {len(inner)} patch tokens of dim {len(inner[0])}, averaging...")
-                dim = len(inner[0])
-                avg = [0.0] * dim
-                for patch in inner:
-                    for i, v in enumerate(patch):
-                        avg[i] += float(v)
-                n = len(inner)
-                avg = [v / n for v in avg]
-                return avg
+                cls_token = inner[0]
+                print(f"[CLIP] Using CLS token: {len(inner)} patches, dim={len(cls_token)}")
+                return [float(x) for x in cls_token]
 
     return None
 
