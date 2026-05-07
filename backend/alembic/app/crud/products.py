@@ -37,6 +37,23 @@ def update_product_image(db: Session, product: Product, image_path: str) -> Prod
     return product
 
 
+def update_product_image_data(
+    db: Session,
+    product: Product,
+    image_path: str,
+    image_data: str,
+    image_hash: str,
+) -> Product:
+    """Store image as base64 in DB along with its pHash for recognition."""
+    product.image_path = image_path
+    product.image_data = image_data
+    product.image_hash = image_hash
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
 def apply_product_filters(query, filters: ProductFilters | None):
     if not filters:
         return query

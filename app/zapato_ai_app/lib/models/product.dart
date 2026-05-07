@@ -44,14 +44,16 @@ class Product {
     );
   }
 
-  /// Returns the thumbnail URL (backend generates a cached low-quality version).
+  /// Returns the full image URL served from DB.
+  String? get imageUrl => imagePath;
+
+  /// Returns the thumbnail URL (backend generates low-quality on-the-fly).
   String? get thumbnailUrl {
     if (imagePath == null) return null;
-    // imagePath is like https://host/media/SKU.jpg
+    // imagePath is like https://host/products/SKU/image
     // thumbnailUrl is    https://host/products/SKU/thumbnail
-    final uri = Uri.tryParse(imagePath!);
-    if (uri == null) return null;
-    final baseUrl = '${uri.scheme}://${uri.host}${uri.port != 80 && uri.port != 443 ? ':${uri.port}' : ''}';
-    return '$baseUrl/products/$sku/thumbnail';
+    final lastSlash = imagePath!.lastIndexOf('/');
+    if (lastSlash < 0) return null;
+    return '${imagePath!.substring(0, lastSlash)}/thumbnail';
   }
 }

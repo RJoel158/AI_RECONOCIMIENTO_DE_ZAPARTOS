@@ -1,5 +1,5 @@
+import base64
 import io
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -13,7 +13,7 @@ from backend.alembic.app.crud.products import (
     create_product,
     get_product_by_sku,
     list_products,
-    update_product_image,
+    update_product_image_data,
 )
 from backend.alembic.app.schemas.product import (
     PageMeta,
@@ -22,6 +22,7 @@ from backend.alembic.app.schemas.product import (
     ProductPage,
     ProductRead,
 )
+from backend.alembic.app.services.recognition import compute_phash
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -120,52 +121,62 @@ async def upload_product_image(
     if image.content_type and not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Archivo no es imagen")
 
-    images_dir = Path(settings.product_images_dir)
-    images_dir.mkdir(parents=True, exist_ok=True)
-
-    suffix = Path(image.filename or "image").suffix
-    filename = f"{sku}{suffix}"
-    file_path = images_dir / filename
-
+    # Read image bytes
     content = await image.read()
-    file_path.write_bytes(content)
 
+    # Compute perceptual hash
+    phash = compute_phash(content) or ""
+
+    # Encode as base64 for DB storage
+    b64 = base64.b64encode(content).decode("utf-8")
+
+    # Build the URL that will serve this image
     base_url = str(request.base_url).rstrip("/")
-    image_url = f"{base_url}/media/{filename}"
-    return update_product_image(db, product, image_url)
+    image_url = f"{base_url}/products/{sku}/image"
+
+    return update_product_image_data(db, product, image_url, b64, phash)
+
+
+@router.get("/{sku}/image")
+async def get_product_image(sku: str, db: Session = Depends(get_db)):
+    """Serve product image from database (base64 decoded)."""
+    product = get_product_by_sku(db, sku)
+    if not product or not product.image_data:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+
+    image_bytes = base64.b64decode(product.image_data)
+    return Response(
+        content=image_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @router.get("/{sku}/thumbnail")
-async def get_product_thumbnail(sku: str):
-    """Return a small, low-quality thumbnail of the product image."""
-    images_dir = Path(settings.product_images_dir)
-    # Try common extensions
-    for ext in (".jpg", ".jpeg", ".png", ".webp"):
-        candidate = images_dir / f"{sku}{ext}"
-        if candidate.exists():
-            # Check if cached thumbnail exists
-            thumb_dir = images_dir / "thumbs"
-            thumb_dir.mkdir(exist_ok=True)
-            thumb_path = thumb_dir / f"{sku}_thumb.jpg"
+async def get_product_thumbnail(sku: str, db: Session = Depends(get_db)):
+    """Serve a low-quality thumbnail generated on-the-fly from DB data."""
+    product = get_product_by_sku(db, sku)
+    if not product or not product.image_data:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
-            if not thumb_path.exists():
-                try:
-                    from PIL import Image
-                    img = Image.open(candidate)
-                    img.thumbnail((200, 200))
-                    img = img.convert("RGB")
-                    img.save(thumb_path, "JPEG", quality=60)
-                except Exception:
-                    # Fallback: return original
-                    return Response(
-                        content=candidate.read_bytes(),
-                        media_type="image/jpeg",
-                    )
+    try:
+        from PIL import Image
 
-            return Response(
-                content=thumb_path.read_bytes(),
-                media_type="image/jpeg",
-                headers={"Cache-Control": "public, max-age=3600"},
-            )
+        image_bytes = base64.b64decode(product.image_data)
+        img = Image.open(io.BytesIO(image_bytes))
+        img.thumbnail((200, 200))
+        img = img.convert("RGB")
 
-    raise HTTPException(status_code=404, detail="Imagen no encontrada")
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=55)
+        buf.seek(0)
+
+        return Response(
+            content=buf.read(),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    except Exception:
+        # Fallback: return full image
+        image_bytes = base64.b64decode(product.image_data)
+        return Response(content=image_bytes, media_type="image/jpeg")

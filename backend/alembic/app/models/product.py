@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, UniqueConstraint
 
 from backend.alembic.app.core.database import Base
 
@@ -19,4 +19,5 @@ class Product(Base):
     shelf = Column(String(32), nullable=True)
     shelf_level = Column(String(32), nullable=True)
     image_path = Column(String(256), nullable=True)
-
+    image_data = Column(Text, nullable=True)
+    image_hash = Column(String(16), nullable=True)

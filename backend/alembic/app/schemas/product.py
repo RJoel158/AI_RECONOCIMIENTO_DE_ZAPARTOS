@@ -23,6 +23,7 @@ class ProductCreate(ProductBase):
 
 class ProductRead(ProductBase):
     id: int
+    image_hash: str | None = None
 
     model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
