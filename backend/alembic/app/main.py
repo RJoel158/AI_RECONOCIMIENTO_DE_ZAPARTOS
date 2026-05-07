@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import subprocess
 import logging
@@ -14,21 +15,31 @@ logger = logging.getLogger(__name__)
 
 # Run migrations automatically on startup
 try:
+    backend_dir = str(Path(__file__).resolve().parent.parent.parent)  # backend/
+    print(f"[STARTUP] Running alembic upgrade head from {backend_dir}")
     result = subprocess.run(
         ["alembic", "upgrade", "head"],
-        cwd=str(Path(__file__).resolve().parent.parent.parent),  # backend/
+        cwd=backend_dir,
         capture_output=True,
         text=True,
         timeout=30,
     )
-    if result.returncode == 0:
-        logger.info("Migrations applied successfully")
-    else:
-        logger.warning("Migration warning: %s", result.stderr)
+    print(f"[STARTUP] Migration stdout: {result.stdout}")
+    if result.returncode != 0:
+        print(f"[STARTUP] Migration stderr: {result.stderr}")
 except Exception as e:
-    logger.warning("Could not run migrations: %s", e)
+    print(f"[STARTUP] Migration error: {e}")
 
 app = FastAPI(title=settings.api_title, version=settings.api_version)
+
+# CORS — allow all origins so Flutter app can connect from any host
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Images are now served from the database (GET /products/{sku}/image)
 # The /media mount is kept for backwards compatibility but is optional
