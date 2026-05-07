@@ -1,9 +1,12 @@
 """
 Image embedding service via HuggingFace Inference API.
 
-Uses google/vit-base-patch16-224 for image feature extraction.
-This model is natively supported by HuggingFace's serverless API
-and returns 768-dimensional embeddings for any image.
+Uses a two-step pipeline:
+1. ViT image classification → semantic labels describing the image
+2. Text embedding of labels → 384-dimensional vector
+
+The labels serve as a semantic fingerprint of the image content.
+Two photos of the same shoe produce similar labels → similar embeddings.
 """
 
 import io
@@ -17,17 +20,17 @@ from PIL import Image
 
 from backend.alembic.app.core.config import settings
 
-# google/vit-base-patch16-224 — supported for image feature extraction
-HF_API_URL = "https://api-inference.huggingface.co/models/google/vit-base-patch16-224"
+# Step 1: Image → labels (top 5 classification labels from ViT)
+VIT_URL = "https://router.huggingface.co/hf-inference/models/google/vit-base-patch16-224"
+# Step 2: Labels text → embedding vector (384 dims)
+EMBED_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2"
 
 
 def _get_headers() -> dict:
-    """Build auth headers for HuggingFace API."""
     token = settings.hf_api_token
     if not token:
-        print("[CLIP] ERROR: HF_API_TOKEN not set")
+        print("[EMBED] ERROR: HF_API_TOKEN not set")
         return {}
-    print(f"[CLIP] Token: {token[:10]}...")
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -36,27 +39,110 @@ def _prepare_image(image_bytes: bytes, max_size: int = 384) -> bytes:
     try:
         img = Image.open(io.BytesIO(image_bytes))
         img = img.convert("RGB")
-
         w, h = img.size
         if max(w, h) > max_size:
             ratio = max_size / max(w, h)
             img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
-
         buf = io.BytesIO()
         img.save(buf, "JPEG", quality=85)
         buf.seek(0)
         result = buf.read()
-        print(f"[CLIP] Image prepared: {img.size}, {len(result)} bytes")
+        print(f"[EMBED] Image prepared: {img.size}, {len(result)} bytes")
         return result
     except Exception as e:
-        print(f"[CLIP] Image prep failed: {e}")
+        print(f"[EMBED] Image prep failed: {e}")
         return image_bytes
+
+
+def _classify_image(image_bytes: bytes, headers: dict) -> Optional[str]:
+    """
+    Step 1: Use ViT to classify the image and get semantic labels.
+    Returns a text description like 'running shoe, sneaker, loafer'.
+    """
+    for attempt in range(3):
+        try:
+            r = requests.post(
+                VIT_URL,
+                headers={**headers, "Content-Type": "image/jpeg"},
+                data=image_bytes,
+                timeout=60,
+            )
+            print(f"[EMBED] ViT status: {r.status_code}")
+
+            if r.status_code == 503:
+                wait = min(r.json().get("estimated_time", 20), 30)
+                print(f"[EMBED] Model loading, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+            if r.status_code == 429:
+                print("[EMBED] Rate limited, waiting 10s...")
+                time.sleep(10)
+                continue
+
+            if r.status_code != 200:
+                print(f"[EMBED] ViT error: {r.text[:200]}")
+                continue
+
+            result = r.json()
+            if isinstance(result, list) and result:
+                labels = [item["label"] for item in result if "label" in item]
+                desc = ", ".join(labels)
+                print(f"[EMBED] Labels: {desc}")
+                return desc
+
+        except Exception as e:
+            print(f"[EMBED] ViT attempt {attempt + 1} error: {e}")
+            continue
+
+    return None
+
+
+def _text_to_embedding(text: str, headers: dict) -> Optional[list[float]]:
+    """
+    Step 2: Convert text labels to a 384-dimensional embedding vector
+    using sentence-transformers/all-MiniLM-L6-v2.
+    """
+    for attempt in range(3):
+        try:
+            r = requests.post(
+                EMBED_URL,
+                headers={**headers, "Content-Type": "application/json"},
+                json={"inputs": text},
+                timeout=30,
+            )
+            print(f"[EMBED] Text embed status: {r.status_code}")
+
+            if r.status_code == 503:
+                wait = min(r.json().get("estimated_time", 20), 30)
+                print(f"[EMBED] Embed model loading, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+            if r.status_code != 200:
+                print(f"[EMBED] Text embed error: {r.text[:200]}")
+                continue
+
+            result = r.json()
+            # Response: [float, float, ...] or [[float, ...]]
+            if isinstance(result, list):
+                if result and isinstance(result[0], (int, float)):
+                    return [float(x) for x in result]
+                if result and isinstance(result[0], list):
+                    return [float(x) for x in result[0]]
+
+        except Exception as e:
+            print(f"[EMBED] Text embed attempt {attempt + 1} error: {e}")
+            continue
+
+    return None
 
 
 def get_embedding(image_bytes: bytes) -> Optional[list[float]]:
     """
-    Get image embedding via HuggingFace Inference API.
-    Returns a list of floats (embedding vector), or None on failure.
+    Get image embedding via two-step HuggingFace pipeline:
+    1. ViT classifies image → semantic labels
+    2. MiniLM embeds labels → 384-dim vector
     """
     headers = _get_headers()
     if not headers:
@@ -64,92 +150,20 @@ def get_embedding(image_bytes: bytes) -> Optional[list[float]]:
 
     prepared = _prepare_image(image_bytes)
 
-    for attempt in range(3):
-        try:
-            print(f"[CLIP] Attempt {attempt + 1}: POST {HF_API_URL}")
-            response = requests.post(
-                HF_API_URL,
-                headers=headers,
-                data=prepared,
-                timeout=60,
-            )
-            print(f"[CLIP] Status: {response.status_code}")
-
-            if response.status_code == 503:
-                body = response.json()
-                wait = min(body.get("estimated_time", 20), 30)
-                print(f"[CLIP] Model loading, waiting {wait}s...")
-                time.sleep(wait)
-                continue
-
-            if response.status_code == 429:
-                print("[CLIP] Rate limited, waiting 10s...")
-                time.sleep(10)
-                continue
-
-            if response.status_code != 200:
-                print(f"[CLIP] Error: {response.text[:300]}")
-                continue
-
-            result = response.json()
-            print(f"[CLIP] Response type: {type(result).__name__}")
-
-            embedding = _extract_embedding(result)
-            if embedding:
-                print(f"[CLIP] SUCCESS: {len(embedding)}-dim embedding")
-                return embedding
-            else:
-                print(f"[CLIP] Could not extract embedding. Preview: {str(result)[:200]}")
-                return None
-
-        except requests.exceptions.Timeout:
-            print(f"[CLIP] Timeout attempt {attempt + 1}")
-            continue
-        except Exception as e:
-            print(f"[CLIP] Error attempt {attempt + 1}: {e}")
-            continue
-
-    print("[CLIP] All attempts failed")
-    return None
-
-
-def _extract_embedding(result) -> Optional[list[float]]:
-    """
-    Extract a 1D embedding vector from HuggingFace response.
-
-    ViT returns: [[patch_1_768, patch_2_768, ...]] — list of patch embeddings.
-    We use the FIRST token ([CLS] token) as the global image representation.
-    If it's just a 1D vector, use it directly.
-    """
-    if not result:
+    # Step 1: Image → labels
+    labels = _classify_image(prepared, headers)
+    if not labels:
+        print("[EMBED] FAILED: Could not classify image")
         return None
 
-    if isinstance(result, dict):
-        if "error" in result:
-            print(f"[CLIP] API error: {result['error']}")
+    # Step 2: Labels → embedding
+    embedding = _text_to_embedding(labels, headers)
+    if not embedding:
+        print("[EMBED] FAILED: Could not get text embedding")
         return None
 
-    if isinstance(result, list):
-        # Case 1: [float, float, ...] — direct 1D vector
-        if len(result) > 0 and isinstance(result[0], (int, float)):
-            return [float(x) for x in result]
-
-        # Case 2: [[float, float, ...]] — one embedding wrapped
-        if len(result) > 0 and isinstance(result[0], list):
-            inner = result[0]
-
-            # [[float, float, ...]] — 1D vector wrapped
-            if len(inner) > 0 and isinstance(inner[0], (int, float)):
-                return [float(x) for x in inner]
-
-            # [[[float, ...], [float, ...], ...]] — patch tokens
-            # Use first token (CLS) as global representation
-            if len(inner) > 0 and isinstance(inner[0], list):
-                cls_token = inner[0]
-                print(f"[CLIP] Using CLS token: {len(inner)} patches, dim={len(cls_token)}")
-                return [float(x) for x in cls_token]
-
-    return None
+    print(f"[EMBED] SUCCESS: {len(embedding)}-dim embedding")
+    return embedding
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -169,10 +183,10 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 def embedding_to_json(embedding: list[float]) -> str:
-    """Serialize embedding to compact JSON string for DB storage."""
+    """Serialize embedding to compact JSON for DB storage."""
     return json.dumps([round(v, 6) for v in embedding])
 
 
 def json_to_embedding(json_str: str) -> list[float]:
-    """Deserialize embedding from JSON string."""
+    """Deserialize embedding from JSON."""
     return json.loads(json_str)
