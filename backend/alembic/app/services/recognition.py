@@ -2,90 +2,101 @@ from pathlib import Path
 from collections import Counter
 
 try:
-    import numpy as np
-    from ml.scripts.extractor import ShoeFeatureExtractor
-    from ml.scripts.sync_embeddings import sync_embeddings
-    _ML_READY = True
-except Exception:
-    np = None
-    ShoeFeatureExtractor = None
-    sync_embeddings = None
-    _ML_READY = False
+    from PIL import Image
+    _PIL_READY = True
+except ImportError:
+    _PIL_READY = False
+
+
+def _histogram_vector(image_path: str, bins: int = 32) -> list[float] | None:
+    """Extract a normalised RGB histogram from an image file."""
+    if not _PIL_READY:
+        return None
+    try:
+        img = Image.open(image_path).convert("RGB").resize((128, 128))
+        hist = img.histogram()  # 256*3 = 768 values (R, G, B)
+        # Downsample into `bins` buckets per channel
+        bucket_size = 256 // bins
+        vec: list[float] = []
+        for channel in range(3):
+            offset = channel * 256
+            for b in range(bins):
+                start = offset + b * bucket_size
+                end = start + bucket_size
+                vec.append(sum(hist[start:end]))
+        # Normalise so the total sums to 1.0
+        total = sum(vec) or 1.0
+        return [v / total for v in vec]
+    except Exception:
+        return None
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    mag_a = sum(x * x for x in a) ** 0.5
+    mag_b = sum(x * x for x in b) ** 0.5
+    if mag_a == 0 or mag_b == 0:
+        return 0.0
+    return dot / (mag_a * mag_b)
+
 
 class RecognitionService:
     def __init__(self):
-        # Paths to ML assets
-        self.model_path = Path("ml/models/shoe_extractor.pth")
-        self.embeddings_path = Path("ml/models/embeddings.npy")
-        self.map_path = Path("ml/models/sku_map.json")
-        
-        self._ml_ready = _ML_READY
-        self.extractor = None
+        self._pil_ready = _PIL_READY
 
-        if self._ml_ready:
-            self.extractor = ShoeFeatureExtractor(pretrained=True)
-            self.extractor.eval()
-        
-        # Load reference library
-        self.embeddings = (
-            np.load(self.embeddings_path)
-            if self._ml_ready and self.embeddings_path.exists()
-            else None
-        )
-        self.sku_map = {}
-        if self.map_path.exists():
-            import json
-            with open(self.map_path, 'r') as f:
-                self.sku_map = json.load(f)
+    def recognize_multi_frame(
+        self,
+        image_paths: list[str],
+        product_images_dir: str = "data/product_images",
+    ) -> list[tuple[str, float]]:
+        """
+        Compare captured frames against stored product reference images.
+        Returns a list of (sku, similarity_score) sorted by score descending.
+        """
+        if not self._pil_ready or not image_paths:
+            return []
+
+        # 1. Build average histogram from all captured frames
+        histograms = []
+        for p in image_paths:
+            h = _histogram_vector(p)
+            if h:
+                histograms.append(h)
+
+        if not histograms:
+            return []
+
+        dim = len(histograms[0])
+        avg_hist = [
+            sum(h[i] for h in histograms) / len(histograms) for i in range(dim)
+        ]
+
+        # 2. Compare against every product reference image on disk
+        ref_dir = Path(product_images_dir)
+        if not ref_dir.exists():
+            return []
+
+        results: list[tuple[str, float]] = []
+        for img_file in ref_dir.iterdir():
+            if img_file.suffix.lower() not in (".jpg", ".jpeg", ".png", ".webp"):
+                continue
+
+            ref_hist = _histogram_vector(str(img_file))
+            if not ref_hist:
+                continue
+
+            score = _cosine_similarity(avg_hist, ref_hist)
+            # SKU is the filename without extension
+            sku = img_file.stem
+            results.append((sku, score))
+
+        # Sort best matches first
+        results.sort(key=lambda r: r[1], reverse=True)
+        return results[:5]  # top 5 candidates
 
     def sync_catalog(self):
-        if not self._ml_ready or not sync_embeddings:
-            return
-        sync_embeddings("data/captures")
+        """No-op for histogram approach (no pre-computed embeddings needed)."""
+        pass
 
-    def _get_best_sku(self, image_path):
-        """Internal helper to get the best SKU for a single image"""
-        if not self._ml_ready or self.embeddings is None or not self.extractor:
-            return None, 0.0
-            
-        target_vector = self.extractor.extract_vector(image_path)
-        distances = np.linalg.norm(self.embeddings - target_vector, axis=1)
-        best_match_idx = np.argmin(distances)
-        best_score = 1 - distances[best_match_idx]
-        
-        inv_map = {v: k for k, v in self.sku_map.items()}
-        return inv_map.get(best_match_idx), best_score
-
-    def recognize_multi_frame(self, image_paths: list[str]):
-        """
-        Implements Consensus Logic:
-        Processes multiple frames and returns the SKU with the highest 
-        combined confidence and frequency.
-        """
-        if not image_paths or not self._ml_ready:
-            return None, 0.0
-
-        results = []
-        for path in image_paths:
-            sku, score = self._get_best_sku(path)
-            if sku:
-                results.append((sku, score))
-
-        if not results:
-            return None, 0.0
-
-        # Voting: Count frequency of each SKU
-        skus = [r[0] for r in results]
-        counts = Counter(skus)
-        
-        # We want the SKU that appeared most often, but also has the best avg score
-        # Tie-break: Highest average confidence among the most frequent SKUs
-        most_common_sku, freq = counts.most_common(1)[0]
-        
-        # Calculate average confidence for the winning SKU
-        scores_for_winner = [r[1] for r in results if r[0] == most_common_sku]
-        avg_confidence = np.mean(scores_for_winner)
-
-        return most_common_sku, avg_confidence
 
 recognition_service = RecognitionService()

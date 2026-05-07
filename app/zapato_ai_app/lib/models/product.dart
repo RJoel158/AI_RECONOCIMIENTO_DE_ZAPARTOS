@@ -43,4 +43,15 @@ class Product {
       imagePath: json['image_path'] as String?,
     );
   }
+
+  /// Returns the thumbnail URL (backend generates a cached low-quality version).
+  String? get thumbnailUrl {
+    if (imagePath == null) return null;
+    // imagePath is like https://host/media/SKU.jpg
+    // thumbnailUrl is    https://host/products/SKU/thumbnail
+    final uri = Uri.tryParse(imagePath!);
+    if (uri == null) return null;
+    final baseUrl = '${uri.scheme}://${uri.host}${uri.port != 80 && uri.port != 443 ? ':${uri.port}' : ''}';
+    return '$baseUrl/products/$sku/thumbnail';
+  }
 }

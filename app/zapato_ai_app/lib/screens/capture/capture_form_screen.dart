@@ -139,11 +139,15 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
     TextEditingController controller, {
     bool requiredField = false,
     IconData? icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
         controller: controller,
+        readOnly: readOnly,
+        onTap: onTap,
         style: GoogleFonts.spaceGrotesk(
           fontSize: 15,
           color: AppTheme.ink,
@@ -152,6 +156,10 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
           labelText: requiredField ? '$label *' : label,
           prefixIcon: icon != null
               ? Icon(icon, size: 20, color: AppTheme.silver)
+              : null,
+          suffixIcon: readOnly
+              ? const Icon(Icons.arrow_drop_down_rounded,
+                  color: AppTheme.silver)
               : null,
         ),
         validator: requiredField
@@ -163,6 +171,147 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
               }
             : null,
       ),
+    );
+  }
+
+  static const _colorSwatches = <String, Color>{
+    'Negro': Color(0xFF1A1A1A),
+    'Blanco': Color(0xFFFAFAFA),
+    'Gris': Color(0xFF9E9E9E),
+    'Rojo': Color(0xFFE53935),
+    'Azul': Color(0xFF1E88E5),
+    'Azul marino': Color(0xFF1A237E),
+    'Verde': Color(0xFF43A047),
+    'Amarillo': Color(0xFFFDD835),
+    'Naranja': Color(0xFFFB8C00),
+    'Rosa': Color(0xFFEC407A),
+    'Morado': Color(0xFF8E24AA),
+    'Marrón': Color(0xFF6D4C41),
+    'Beige': Color(0xFFD7CCC8),
+    'Dorado': Color(0xFFFFD54F),
+    'Plateado': Color(0xFFBDBDBD),
+    'Café': Color(0xFF4E342E),
+    'Turquesa': Color(0xFF26C6DA),
+    'Coral': Color(0xFFFF7043),
+    'Vino': Color(0xFF880E4F),
+    'Oliva': Color(0xFF827717),
+    'Multicolor': Color(0xFF000000),
+  };
+
+  void _showColorPicker(TextEditingController controller) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cream,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radiusXl),
+            ),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.silver,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Seleccionar color',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.ink,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _colorSwatches.entries.map((entry) {
+                  final isSelected = controller.text == entry.key;
+                  final isMulticolor = entry.key == 'Multicolor';
+                  return GestureDetector(
+                    onTap: () {
+                      controller.text = entry.key;
+                      Navigator.pop(context);
+                    },
+                    child: AnimatedContainer(
+                      duration: AppTheme.fast,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.ink
+                            : AppTheme.white,
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSm),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.ink
+                              : AppTheme.bone,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: isMulticolor ? null : entry.value,
+                              gradient: isMulticolor
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Colors.red,
+                                        Colors.orange,
+                                        Colors.yellow,
+                                        Colors.green,
+                                        Colors.blue,
+                                        Colors.purple,
+                                      ],
+                                    )
+                                  : null,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.15),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            entry.key,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected
+                                  ? AppTheme.cream
+                                  : AppTheme.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -306,9 +455,11 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                 _buildField('Tipo', _typeController,
                     requiredField: true, icon: Icons.category_rounded),
                 _buildField('Color primario', _colorPrimaryController,
-                    requiredField: true, icon: Icons.palette_rounded),
+                    requiredField: true, icon: Icons.palette_rounded,
+                    readOnly: true, onTap: () => _showColorPicker(_colorPrimaryController)),
                 _buildField('Color secundario', _colorSecondaryController,
-                    icon: Icons.palette_outlined),
+                    icon: Icons.palette_outlined,
+                    readOnly: true, onTap: () => _showColorPicker(_colorSecondaryController)),
                 _buildField('Material', _materialController,
                     icon: Icons.texture_rounded),
 

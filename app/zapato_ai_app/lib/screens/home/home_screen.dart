@@ -115,133 +115,139 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openFilters() {
-    final brandController = TextEditingController(text: _filters['brand']);
-    final typeController = TextEditingController(text: _filters['type']);
-    final colorPrimaryController =
-        TextEditingController(text: _filters['color_primary']);
-    final colorSecondaryController =
-        TextEditingController(text: _filters['color_secondary']);
-    final materialController =
-        TextEditingController(text: _filters['material']);
-    final aisleController = TextEditingController(text: _filters['aisle']);
-    final shelfController = TextEditingController(text: _filters['shelf']);
-    final shelfLevelController =
-        TextEditingController(text: _filters['shelf_level']);
+  Future<void> _openFilters() async {
+    // Load distinct values from DB for each filter field
+    final fields = ['brand', 'type', 'color_primary', 'color_secondary', 'material', 'aisle', 'shelf', 'shelf_level'];
+    final labels = ['Marca', 'Tipo', 'Color primario', 'Color secundario', 'Material', 'Pasillo', 'Estante', 'Nivel'];
+    
+    final Map<String, List<String>> options = {};
+    for (final field in fields) {
+      try {
+        options[field] = await _apiService.getDistinctValues(field);
+      } catch (_) {
+        options[field] = [];
+      }
+    }
+
+    if (!mounted) return;
+
+    // Working copy of selections
+    final selected = Map<String, String?>.from(
+      {for (final f in fields) f: _filters[f]?.isNotEmpty == true ? _filters[f] : null},
+    );
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppTheme.cream,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppTheme.radiusXl),
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
-              top: 16,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Handle bar
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppTheme.silver,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Filtros',
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildFilterField('Marca', brandController),
-                  _buildFilterField('Tipo', typeController),
-                  _buildFilterField('Color primario', colorPrimaryController),
-                  _buildFilterField(
-                      'Color secundario', colorSecondaryController),
-                  _buildFilterField('Material', materialController),
-                  _buildFilterField('Pasillo', aisleController),
-                  _buildFilterField('Estante', shelfController),
-                  _buildFilterField('Nivel', shelfLevelController),
-                  const SizedBox(height: 20),
-                  Row(
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppTheme.cream,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radiusXl),
+                ),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancelar'),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppTheme.silver,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _filters['brand'] = brandController.text.trim();
-                            _filters['type'] = typeController.text.trim();
-                            _filters['color_primary'] =
-                                colorPrimaryController.text.trim();
-                            _filters['color_secondary'] =
-                                colorSecondaryController.text.trim();
-                            _filters['material'] =
-                                materialController.text.trim();
-                            _filters['aisle'] = aisleController.text.trim();
-                            _filters['shelf'] = shelfController.text.trim();
-                            _filters['shelf_level'] =
-                                shelfLevelController.text.trim();
-
-                            Navigator.pop(context);
-                            _fetchProducts();
-                          },
-                          child: const Text('Aplicar'),
-                        ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Filtros',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              setModalState(() {
+                                for (final f in fields) {
+                                  selected[f] = null;
+                                }
+                              });
+                            },
+                            child: Text(
+                              'LIMPIAR',
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.citrus,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      for (int i = 0; i < fields.length; i++) ...[
+                        if (options[fields[i]]?.isNotEmpty == true)
+                          _FilterDropdown(
+                            label: labels[i],
+                            options: options[fields[i]]!,
+                            value: selected[fields[i]],
+                            onChanged: (val) {
+                              setModalState(() => selected[fields[i]] = val);
+                            },
+                          ),
+                      ],
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                for (final f in fields) {
+                                  _filters[f] = selected[f] ?? '';
+                                }
+                                Navigator.pop(context);
+                                _fetchProducts();
+                              },
+                              child: const Text('Aplicar'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
-    ).whenComplete(() {
-      brandController.dispose();
-      typeController.dispose();
-      colorPrimaryController.dispose();
-      colorSecondaryController.dispose();
-      materialController.dispose();
-      aisleController.dispose();
-      shelfController.dispose();
-      shelfLevelController.dispose();
-    });
-  }
-
-  Widget _buildFilterField(String label, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(labelText: label),
-      ),
     );
   }
 
@@ -698,6 +704,72 @@ class _NavItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Filter Dropdown ───
+class _FilterDropdown extends StatelessWidget {
+  final String label;
+  final List<String> options;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  const _FilterDropdown({
+    required this.label,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: GoogleFonts.spaceGrotesk(
+            fontSize: 14,
+            color: AppTheme.ash,
+          ),
+          filled: true,
+          fillColor: AppTheme.bone,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        dropdownColor: AppTheme.white,
+        style: GoogleFonts.spaceGrotesk(
+          fontSize: 15,
+          color: AppTheme.ink,
+        ),
+        items: [
+          DropdownMenuItem<String>(
+            value: null,
+            child: Text(
+              'Todos',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 14,
+                color: AppTheme.silver,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+          ...options.map(
+            (opt) => DropdownMenuItem<String>(
+              value: opt,
+              child: Text(opt),
+            ),
+          ),
+        ],
+        onChanged: onChanged,
       ),
     );
   }

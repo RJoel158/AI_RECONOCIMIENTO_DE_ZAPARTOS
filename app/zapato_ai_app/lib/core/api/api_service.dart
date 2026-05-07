@@ -10,14 +10,12 @@ import 'api_config.dart';
 class ApiService {
   final String baseUrl = ApiConfig.baseUrl;
 
-  /// Determines MIME type from file extension
-  MediaType _mediaTypeFromPath(String path) {
-    final ext = p.extension(path).toLowerCase();
+  /// Determines the MediaType for an image file based on its extension.
+  MediaType _imageMediaType(String filePath) {
+    final ext = p.extension(filePath).toLowerCase();
     switch (ext) {
       case '.png':
         return MediaType('image', 'png');
-      case '.gif':
-        return MediaType('image', 'gif');
       case '.webp':
         return MediaType('image', 'webp');
       default:
@@ -37,7 +35,7 @@ class ApiService {
       final file = await http.MultipartFile.fromPath(
         'images',
         path,
-        contentType: _mediaTypeFromPath(path),
+        contentType: _imageMediaType(path),
       );
       request.files.add(file);
     }
@@ -166,13 +164,11 @@ class ApiService {
       'POST',
       Uri.parse('$baseUrl/products/$sku/image'),
     );
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'image',
-        imagePath,
-        contentType: _mediaTypeFromPath(imagePath),
-      ),
-    );
+    request.files.add(await http.MultipartFile.fromPath(
+      'image',
+      imagePath,
+      contentType: _imageMediaType(imagePath),
+    ));
 
     try {
       final streamedResponse = await request.send();
@@ -210,13 +206,11 @@ class ApiService {
       request.fields['note'] = note.trim();
     }
     for (final path in imagePaths) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'images',
-          path,
-          contentType: _mediaTypeFromPath(path),
-        ),
-      );
+      request.files.add(await http.MultipartFile.fromPath(
+        'images',
+        path,
+        contentType: _imageMediaType(path),
+      ));
     }
 
     try {
@@ -237,15 +231,15 @@ class ApiService {
     }
   }
 
-  /// Fetches distinct values for a given field from the products endpoint
+  /// Fetches distinct values for a given product field (for filter dropdowns)
   Future<List<String>> getDistinctValues(String field) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/products/distinct/$field'),
       );
       if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List<dynamic>;
-        return data.map((e) => e.toString()).toList();
+        final list = json.decode(response.body) as List<dynamic>;
+        return list.map((e) => e.toString()).toList();
       }
       return [];
     } catch (_) {
