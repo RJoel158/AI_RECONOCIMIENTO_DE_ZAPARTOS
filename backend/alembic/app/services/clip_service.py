@@ -23,7 +23,7 @@ from backend.alembic.app.core.config import settings
 # Step 1: Image → labels (top 5 classification labels from ViT)
 VIT_URL = "https://router.huggingface.co/hf-inference/models/google/vit-base-patch16-224"
 # Step 2: Labels text → embedding vector (384 dims)
-EMBED_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2"
+EMBED_URL = "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5"
 
 
 def _get_headers() -> dict:
