@@ -82,6 +82,22 @@ def get_distinct_values(field: str, db: Session = Depends(get_db)):
     return [v[0] for v in values]
 
 
+@router.get("/distinct-all", response_model=None)
+def get_all_distinct_values(db: Session = Depends(get_db)):
+    """Return distinct values for ALL filterable fields in one request."""
+    result = {}
+    for field_name, col in ALLOWED_DISTINCT_FIELDS.items():
+        values = (
+            db.query(col)
+            .filter(col.isnot(None), col != "")
+            .distinct()
+            .order_by(col)
+            .all()
+        )
+        result[field_name] = [v[0] for v in values]
+    return result
+
+
 @router.get("/{sku}", response_model=ProductRead)
 def get_product_endpoint(sku: str, db: Session = Depends(get_db)):
     product = get_product_by_sku(db, sku)

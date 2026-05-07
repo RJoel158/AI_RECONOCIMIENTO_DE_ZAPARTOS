@@ -43,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _isLoading = true;
       _error = null;
     });
+    // Invalidate filter cache so new products appear in dropdowns
+    _cachedFilterOptions = null;
 
     try {
       final response = await _apiService.listProducts(
@@ -115,19 +117,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ─── Cached filter options (loaded once, refreshed on pull-to-refresh) ───
+  Map<String, List<String>>? _cachedFilterOptions;
+
+  Future<void> _loadFilterOptions({bool force = false}) async {
+    if (_cachedFilterOptions != null && !force) return;
+    try {
+      _cachedFilterOptions = await _apiService.getAllDistinctValues();
+    } catch (_) {
+      _cachedFilterOptions = {};
+    }
+  }
+
   Future<void> _openFilters() async {
-    // Load distinct values from DB for each filter field
+    // Show sheet immediately with a loading indicator, then populate
+    await _loadFilterOptions();
+    if (!mounted) return;
+
     final fields = ['brand', 'type', 'color_primary', 'color_secondary', 'material', 'aisle', 'shelf', 'shelf_level'];
     final labels = ['Marca', 'Tipo', 'Color primario', 'Color secundario', 'Material', 'Pasillo', 'Estante', 'Nivel'];
-    
-    final Map<String, List<String>> options = {};
-    for (final field in fields) {
-      try {
-        options[field] = await _apiService.getDistinctValues(field);
-      } catch (_) {
-        options[field] = [];
-      }
-    }
+    final options = _cachedFilterOptions ?? {};
 
     if (!mounted) return;
 
@@ -396,14 +405,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 const SizedBox(width: 8),
                                 _HeaderButton(
                                   icon: Icons.add_rounded,
-                                  onTap: () {
-                                    Navigator.push(
+                                  onTap: () async {
+                                    final didSave = await Navigator.push<bool>(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) =>
                                             const CaptureBurstScreen(),
                                       ),
                                     );
+                                    if (didSave == true) _fetchProducts();
                                   },
                                   accent: true,
                                 ),
@@ -449,7 +459,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
 
                   // ─── Product Grid ───
-                  Expanded(child: _buildCatalogView()),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _fetchProducts,
+                      color: AppTheme.citrus,
+                      child: _buildCatalogView(),
+                    ),
+                  ),
                 ],
               )
             : const ScannerScreen(),
@@ -536,7 +552,7 @@ class _ProductCard extends StatelessWidget {
                     top: Radius.circular(AppTheme.radiusMd),
                   ),
                 ),
-                child: product.imagePath == null
+                child: product.thumbnailUrl == null
                     ? Center(
                         child: Icon(
                           Icons.image_outlined,
@@ -549,10 +565,11 @@ class _ProductCard extends StatelessWidget {
                           top: Radius.circular(AppTheme.radiusMd),
                         ),
                         child: Image.network(
-                          product.imagePath!,
+                          product.thumbnailUrl!,
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: double.infinity,
+                          cacheWidth: 200,
                           errorBuilder: (_, _, _) => Center(
                             child: Icon(
                               Icons.broken_image_outlined,
@@ -566,54 +583,54 @@ class _ProductCard extends StatelessWidget {
             ),
 
             // Info area
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.modelName,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    product.modelName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    product.brand,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppTheme.ash,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bone,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSm / 2),
+                    ),
+                    child: Text(
+                      '${product.type} · ${product.colorPrimary}',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.ash,
+                        letterSpacing: 0.3,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: AppTheme.ink,
-                      ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      product.brand,
-                      style: TextStyle(
-                        color: AppTheme.ash,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.bone,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSm / 2),
-                      ),
-                      child: Text(
-                        '${product.type} · ${product.colorPrimary}',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.ash,
-                          letterSpacing: 0.3,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

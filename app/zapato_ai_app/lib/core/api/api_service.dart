@@ -246,4 +246,25 @@ class ApiService {
       return [];
     }
   }
+
+  /// Fetches ALL distinct values in one call (much faster than per-field)
+  Future<Map<String, List<String>>> getAllDistinctValues() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/products/distinct-all'),
+      );
+      if (response.statusCode == 200) {
+        final map = json.decode(response.body) as Map<String, dynamic>;
+        return map.map(
+          (key, value) => MapEntry(
+            key,
+            (value as List<dynamic>).map((e) => e.toString()).toList(),
+          ),
+        );
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
 }

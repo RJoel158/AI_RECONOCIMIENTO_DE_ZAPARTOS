@@ -17,7 +17,7 @@ from backend.alembic.app.services.recognition import recognition_service
 
 router = APIRouter(prefix="/recognize", tags=["recognition"])
 
-DIRECT_MATCH_THRESHOLD = 0.80
+DIRECT_MATCH_THRESHOLD = 0.35
 
 
 @router.post("", response_model=RecognitionResponse)

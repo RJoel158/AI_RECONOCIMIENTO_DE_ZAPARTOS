@@ -107,7 +107,7 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
 
       if (!mounted) return;
       _showSnack('Producto y captura guardados ✓');
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (e) {
       _showSnack('Error al crear producto: $e');
     } finally {
@@ -202,8 +202,12 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.55,
+          ),
           decoration: BoxDecoration(
             color: AppTheme.cream,
             borderRadius: const BorderRadius.vertical(
@@ -235,77 +239,81 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _colorSwatches.entries.map((entry) {
-                  final isSelected = controller.text == entry.key;
-                  final isMulticolor = entry.key == 'Multicolor';
-                  return GestureDetector(
-                    onTap: () {
-                      controller.text = entry.key;
-                      Navigator.pop(context);
-                    },
-                    child: AnimatedContainer(
-                      duration: AppTheme.fast,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.ink
-                            : AppTheme.white,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSm),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppTheme.ink
-                              : AppTheme.bone,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 18,
-                            height: 18,
-                            decoration: BoxDecoration(
-                              color: isMulticolor ? null : entry.value,
-                              gradient: isMulticolor
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Colors.red,
-                                        Colors.orange,
-                                        Colors.yellow,
-                                        Colors.green,
-                                        Colors.blue,
-                                        Colors.purple,
-                                      ],
-                                    )
-                                  : null,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            entry.key,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _colorSwatches.entries.map((entry) {
+                      final isSelected = controller.text == entry.key;
+                      final isMulticolor = entry.key == 'Multicolor';
+                      return GestureDetector(
+                        onTap: () {
+                          controller.text = entry.key;
+                          Navigator.pop(context);
+                        },
+                        child: AnimatedContainer(
+                          duration: AppTheme.fast,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.ink
+                                : AppTheme.white,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSm),
+                            border: Border.all(
                               color: isSelected
-                                  ? AppTheme.cream
-                                  : AppTheme.ink,
+                                  ? AppTheme.ink
+                                  : AppTheme.bone,
+                              width: isSelected ? 2 : 1,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  color: isMulticolor ? null : entry.value,
+                                  gradient: isMulticolor
+                                      ? const LinearGradient(
+                                          colors: [
+                                            Colors.red,
+                                            Colors.orange,
+                                            Colors.yellow,
+                                            Colors.green,
+                                            Colors.blue,
+                                            Colors.purple,
+                                          ],
+                                        )
+                                      : null,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.black.withValues(alpha: 0.15),
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                entry.key,
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isSelected
+                                      ? AppTheme.cream
+                                      : AppTheme.ink,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
             ],

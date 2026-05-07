@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/api/api_config.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../details/details_screen.dart';
@@ -99,8 +100,10 @@ class _ScannerScreenState extends State<ScannerScreen>
     setState(() => _isProcessing = true);
     try {
       final result = await _apiService.recognizeShoe(_capturedImages);
+      if (!mounted) return;
 
-      if (result['details'] != null && mounted) {
+      // Direct match — go straight to details
+      if (result['details'] != null) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -109,12 +112,19 @@ class _ScannerScreenState extends State<ScannerScreen>
             ),
           ),
         );
-      } else if (mounted) {
-        _showError("No se pudo reconocer el modelo. Inténtalo de nuevo.");
+        return;
+      }
+
+      // Candidates available — show selection sheet
+      final candidates = result['candidates'] as List<dynamic>?;
+      if (candidates != null && candidates.isNotEmpty) {
+        _showCandidateSheet(candidates);
+      } else {
+        _showError(result['message'] ?? 'No se encontraron coincidencias');
       }
     } catch (e) {
       if (mounted) {
-        _showError("Error de conexión: $e");
+        _showError('Error de conexión: $e');
       }
     } finally {
       if (mounted) {
@@ -124,6 +134,213 @@ class _ScannerScreenState extends State<ScannerScreen>
         });
       }
     }
+  }
+
+  void _showCandidateSheet(List<dynamic> candidates) {
+    final baseUrl = ApiConfig.baseUrl;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.55,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.cream,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radiusXl),
+            ),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.silver,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '¿Es alguno de estos?',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Selecciona el modelo que coincida',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 13,
+                  color: AppTheme.ash,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: candidates.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final c = candidates[index] as Map<String, dynamic>;
+                    final sku = c['sku'] as String;
+                    final score = (c['score'] as num).toDouble();
+                    final percent = (score * 100).toInt();
+                    final thumbUrl = '$baseUrl/products/$sku/thumbnail';
+
+                    return GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final nav = Navigator.of(context);
+                        // Fetch full details for this SKU
+                        try {
+                          final details =
+                              await _apiService.getProductBySku(sku);
+                          if (!mounted) return;
+                          if (details['details'] != null) {
+                            nav.push(
+                              MaterialPageRoute(
+                                builder: (_) => DetailsScreen(
+                                  productData: details['details']
+                                      as Map<String, dynamic>,
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          _showError('Error al cargar detalles: $e');
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.white,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusMd),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            // Thumbnail
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: AppTheme.bone,
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusSm),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusSm),
+                                child: Image.network(
+                                  thumbUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Icon(
+                                    Icons.image_outlined,
+                                    color: AppTheme.silver,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            // Info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    sku,
+                                    style: GoogleFonts.spaceGrotesk(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Score bar
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(2),
+                                          child:
+                                              LinearProgressIndicator(
+                                            value: score,
+                                            backgroundColor: AppTheme
+                                                .bone,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<
+                                                    Color>(
+                                              score > 0.7
+                                                  ? AppTheme.success
+                                                  : score > 0.4
+                                                      ? AppTheme.citrus
+                                                      : AppTheme.error,
+                                            ),
+                                            minHeight: 4,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$percent%',
+                                        style: GoogleFonts.spaceGrotesk(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.ash,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppTheme.silver,
+                              size: 22,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Ninguno — intentar de nuevo'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showError(String msg) {
