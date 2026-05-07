@@ -124,10 +124,19 @@ async def upload_product_image(
 
     # Read image bytes
     content = await image.read()
+    print(f"[UPLOAD] SKU={sku}, image_size={len(content)} bytes")
 
-    # Get CLIP embedding from HuggingFace (async-safe since it's I/O)
+    # Get CLIP embedding from HuggingFace
+    from backend.alembic.app.core.config import settings as app_settings
+    print(f"[UPLOAD] HF_API_TOKEN configured: {bool(app_settings.hf_api_token)}")
+
     embedding = get_embedding(content)
-    embedding_json = embedding_to_json(embedding) if embedding else ""
+    if embedding:
+        print(f"[UPLOAD] Embedding generated: {len(embedding)} dimensions")
+        embedding_json = embedding_to_json(embedding)
+    else:
+        print("[UPLOAD] WARNING: No embedding generated! Check HF_API_TOKEN")
+        embedding_json = ""
 
     # Encode as base64 for DB storage
     b64 = base64.b64encode(content).decode("utf-8")
@@ -136,7 +145,9 @@ async def upload_product_image(
     base_url = str(request.base_url).rstrip("/")
     image_url = f"{base_url}/products/{sku}/image"
 
-    return update_product_image_data(db, product, image_url, b64, embedding_json)
+    result = update_product_image_data(db, product, image_url, b64, embedding_json)
+    print(f"[UPLOAD] Saved. image_embedding length: {len(embedding_json)}")
+    return result
 
 
 @router.get("/{sku}/image")
@@ -182,3 +193,41 @@ async def get_product_thumbnail(sku: str, db: Session = Depends(get_db)):
         # Fallback: return full image
         image_bytes = base64.b64decode(product.image_data)
         return Response(content=image_bytes, media_type="image/jpeg")
+
+
+@router.post("/regenerate-embeddings")
+def regenerate_embeddings(db: Session = Depends(get_db)):
+    """Re-generate CLIP embeddings for products that have image_data."""
+    products = (
+        db.query(Product)
+        .filter(Product.image_data.isnot(None), Product.image_data != "")
+        .all()
+    )
+
+    updated = 0
+    errors = []
+    for product in products:
+        try:
+            image_bytes = base64.b64decode(product.image_data)
+            embedding = get_embedding(image_bytes)
+            if embedding:
+                product.image_embedding = embedding_to_json(embedding)
+                db.add(product)
+                updated += 1
+            else:
+                errors.append(f"{product.sku}: embedding failed")
+        except Exception as e:
+            errors.append(f"{product.sku}: {str(e)}")
+
+    db.commit()
+    return {"updated": updated, "total_with_images": len(products), "errors": errors}
+
+
+@router.delete("/{sku}")
+def delete_product(sku: str, db: Session = Depends(get_db)):
+    product = get_product_by_sku(db, sku)
+    if not product:
+        raise HTTPException(status_code=404, detail="SKU no encontrado")
+    db.delete(product)
+    db.commit()
+    return {"message": f"Producto {sku} eliminado"}

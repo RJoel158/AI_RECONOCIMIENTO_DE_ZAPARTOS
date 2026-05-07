@@ -92,12 +92,14 @@ class _CaptureBurstScreenState extends State<CaptureBurstScreen>
       _isCapturing = false;
     });
 
-    Navigator.pushReplacement(
+    final didSave = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => CaptureFormScreen(imagePaths: _paths),
       ),
     );
+    if (!mounted) return;
+    Navigator.pop(context, didSave ?? false);
   }
 
   @override
