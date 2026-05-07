@@ -2,11 +2,28 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:path/path.dart' as p;
 
 import 'api_config.dart';
 
 class ApiService {
   final String baseUrl = ApiConfig.baseUrl;
+
+  /// Determines MIME type from file extension
+  MediaType _mediaTypeFromPath(String path) {
+    final ext = p.extension(path).toLowerCase();
+    switch (ext) {
+      case '.png':
+        return MediaType('image', 'png');
+      case '.gif':
+        return MediaType('image', 'gif');
+      case '.webp':
+        return MediaType('image', 'webp');
+      default:
+        return MediaType('image', 'jpeg');
+    }
+  }
 
   /// Reconoce un zapato enviando una ráfaga de imágenes
   Future<Map<String, dynamic>> recognizeShoe(List<String> imagePaths) async {
@@ -15,9 +32,13 @@ class ApiService {
       Uri.parse('$baseUrl/recognize'),
     );
 
-    // Adjuntar todas las imágenes
+    // Adjuntar todas las imágenes con content-type explícito
     for (var path in imagePaths) {
-      final file = await http.MultipartFile.fromPath('images', path);
+      final file = await http.MultipartFile.fromPath(
+        'images',
+        path,
+        contentType: _mediaTypeFromPath(path),
+      );
       request.files.add(file);
     }
 
@@ -145,7 +166,13 @@ class ApiService {
       'POST',
       Uri.parse('$baseUrl/products/$sku/image'),
     );
-    request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'image',
+        imagePath,
+        contentType: _mediaTypeFromPath(imagePath),
+      ),
+    );
 
     try {
       final streamedResponse = await request.send();
@@ -183,7 +210,13 @@ class ApiService {
       request.fields['note'] = note.trim();
     }
     for (final path in imagePaths) {
-      request.files.add(await http.MultipartFile.fromPath('images', path));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'images',
+          path,
+          contentType: _mediaTypeFromPath(path),
+        ),
+      );
     }
 
     try {
@@ -201,6 +234,22 @@ class ApiService {
       throw Exception('Respuesta del servidor no válida');
     } catch (e) {
       throw Exception('Error desconocido: $e');
+    }
+  }
+
+  /// Fetches distinct values for a given field from the products endpoint
+  Future<List<String>> getDistinctValues(String field) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/products/distinct/$field'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List<dynamic>;
+        return data.map((e) => e.toString()).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 }

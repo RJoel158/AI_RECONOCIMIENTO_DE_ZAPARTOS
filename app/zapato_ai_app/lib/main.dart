@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
       title: 'SHOESLY - Reconocimiento de Calzado',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // Seguir el modo del sistema
+      themeMode: ThemeMode.light,
       home: const HomeScreen(),
       debugShowCheckedModeBanner: false, // Ocultar banner de debug
     );

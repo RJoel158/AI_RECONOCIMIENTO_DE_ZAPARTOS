@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/api_service.dart';
+import '../../core/theme/app_theme.dart';
 
 class CaptureFormScreen extends StatefulWidget {
   const CaptureFormScreen({super.key, required this.imagePaths});
@@ -50,12 +52,10 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
   }
 
   Future<void> _saveCapture() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     if (widget.imagePaths.isEmpty) {
-      _showSnack('Debes capturar imagenes');
+      _showSnack('Debes capturar imágenes');
       return;
     }
 
@@ -67,8 +67,9 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final sku = _skuController.text.trim();
       final payload = {
-        'sku': _skuController.text.trim(),
+        'sku': sku,
         'brand': _brandController.text.trim(),
         'model_name': _modelController.text.trim(),
         'type': _typeController.text.trim(),
@@ -80,22 +81,35 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
         'shelf_level': _shelfLevelController.text.trim(),
       };
 
+      // Step 1: Create product
       await _apiService.createProduct(payload);
-      await _apiService.uploadProductImage(
-        sku: _skuController.text.trim(),
-        imagePath: _referenceImagePath!,
-      );
-      await _apiService.createCapture(
-        sku: _skuController.text.trim(),
-        imagePaths: widget.imagePaths,
-        source: 'app',
-      );
+
+      // Step 2: Upload reference image → sets image_path in DB
+      try {
+        await _apiService.uploadProductImage(
+          sku: sku,
+          imagePath: _referenceImagePath!,
+        );
+      } catch (e) {
+        _showSnack('Producto creado, pero error al subir imagen: $e');
+      }
+
+      // Step 3: Upload capture images for training
+      try {
+        await _apiService.createCapture(
+          sku: sku,
+          imagePaths: widget.imagePaths,
+          source: 'app',
+        );
+      } catch (e) {
+        _showSnack('Producto creado, pero error en capturas: $e');
+      }
 
       if (!mounted) return;
-      _showSnack('Producto y captura guardados');
+      _showSnack('Producto y captura guardados ✓');
       Navigator.pop(context);
     } catch (e) {
-      _showSnack('Error: $e');
+      _showSnack('Error al crear producto: $e');
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -105,23 +119,40 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: AppTheme.cream, fontSize: 14),
+        ),
+        backgroundColor: AppTheme.charcoal,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+      ),
+    );
   }
 
   Widget _buildField(
     String label,
     TextEditingController controller, {
     bool requiredField = false,
+    IconData? icon,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
         controller: controller,
+        style: GoogleFonts.spaceGrotesk(
+          fontSize: 15,
+          color: AppTheme.ink,
+        ),
         decoration: InputDecoration(
           labelText: requiredField ? '$label *' : label,
-          border: const OutlineInputBorder(),
+          prefixIcon: icon != null
+              ? Icon(icon, size: 20, color: AppTheme.silver)
+              : null,
         ),
         validator: requiredField
             ? (value) {
@@ -151,58 +182,91 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrar modelo')),
+      backgroundColor: AppTheme.cream,
+      appBar: AppBar(
+        title: Text(
+          'Registrar Modelo',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Capturas: ${widget.imagePaths.length}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                // ─── Captured Images ───
+                _SectionHeader(
+                  title: 'Capturas',
+                  trailing: '${widget.imagePaths.length} fotos',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 SizedBox(
-                  height: 80,
+                  height: 88,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemBuilder: (context, index) {
                       final path = widget.imagePaths[index];
                       return Container(
-                        width: 80,
+                        width: 88,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSm),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSm),
                           child: Image.file(File(path), fit: BoxFit.cover),
                         ),
                       );
                     },
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemCount: widget.imagePaths.length,
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Imagen referencial (para el catalogo)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+
+                const SizedBox(height: 28),
+
+                // ─── Reference Image ───
+                _SectionHeader(
+                  title: 'Imagen referencial',
+                  trailing: 'Para el catálogo',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 if (_referenceImagePath != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        File(_referenceImagePath!),
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMd),
+                        boxShadow: AppTheme.softShadow,
+                      ),
+                      child: ClipRRect(
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMd),
+                        child: Image.file(
+                          File(_referenceImagePath!),
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
@@ -212,8 +276,8 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () =>
                             _pickReferenceImage(ImageSource.camera),
-                        icon: const Icon(Icons.photo_camera),
-                        label: const Text('Camara'),
+                        icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                        label: const Text('Cámara'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -221,43 +285,123 @@ class _CaptureFormScreenState extends State<CaptureFormScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () =>
                             _pickReferenceImage(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Galeria'),
+                        icon: const Icon(Icons.photo_library_rounded, size: 18),
+                        label: const Text('Galería'),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                _buildField('SKU', _skuController, requiredField: true),
-                _buildField('Marca', _brandController, requiredField: true),
-                _buildField('Modelo', _modelController, requiredField: true),
-                _buildField('Tipo', _typeController, requiredField: true),
-                _buildField(
-                  'Color primario',
-                  _colorPrimaryController,
-                  requiredField: true,
+
+                const SizedBox(height: 28),
+
+                // ─── Product Info ───
+                _SectionHeader(title: 'Información del producto'),
+                const SizedBox(height: 14),
+                _buildField('Código Producto', _skuController,
+                    requiredField: true, icon: Icons.qr_code_rounded),
+                _buildField('Marca', _brandController,
+                    requiredField: true, icon: Icons.business_rounded),
+                _buildField('Modelo', _modelController,
+                    requiredField: true, icon: Icons.label_outline_rounded),
+                _buildField('Tipo', _typeController,
+                    requiredField: true, icon: Icons.category_rounded),
+                _buildField('Color primario', _colorPrimaryController,
+                    requiredField: true, icon: Icons.palette_rounded),
+                _buildField('Color secundario', _colorSecondaryController,
+                    icon: Icons.palette_outlined),
+                _buildField('Material', _materialController,
+                    icon: Icons.texture_rounded),
+
+                const SizedBox(height: 12),
+
+                // ─── Location ───
+                _SectionHeader(title: 'Ubicación en almacén'),
+                const SizedBox(height: 14),
+                _buildField('Pasillo', _aisleController,
+                    icon: Icons.signpost_rounded),
+                _buildField('Estante', _shelfController,
+                    icon: Icons.shelves),
+                _buildField('Nivel', _shelfLevelController,
+                    icon: Icons.layers_rounded),
+
+                const SizedBox(height: 24),
+
+                // ─── Save Button ───
+                AnimatedContainer(
+                  duration: AppTheme.fast,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _saveCapture,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.ink,
+                      foregroundColor: AppTheme.cream,
+                      disabledBackgroundColor: AppTheme.graphite,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMd),
+                      ),
+                    ),
+                    child: _isSaving
+                        ? SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppTheme.citrus),
+                            ),
+                          )
+                        : Text(
+                            'GUARDAR PRODUCTO',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                  ),
                 ),
-                _buildField('Color secundario', _colorSecondaryController),
-                _buildField('Material', _materialController),
-                _buildField('Pasillo', _aisleController),
-                _buildField('Estante', _shelfController),
-                _buildField('Nivel', _shelfLevelController),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _isSaving ? null : _saveCapture,
-                  child: _isSaving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Guardar'),
-                ),
+
+                const SizedBox(height: 24),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Section Header ───
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String? trailing;
+
+  const _SectionHeader({required this.title, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.ash,
+            letterSpacing: 2,
+          ),
+        ),
+        if (trailing != null)
+          Text(
+            trailing!,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 12,
+              color: AppTheme.silver,
+            ),
+          ),
+      ],
     );
   }
 }

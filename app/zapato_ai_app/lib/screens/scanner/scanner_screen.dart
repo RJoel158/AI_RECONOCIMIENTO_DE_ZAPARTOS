@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../details/details_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
@@ -13,18 +15,38 @@ class ScannerScreen extends StatefulWidget {
   State<ScannerScreen> createState() => _ScannerScreenState();
 }
 
-class _ScannerScreenState extends State<ScannerScreen> {
+class _ScannerScreenState extends State<ScannerScreen>
+    with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   CameraController? _controller;
   final List<String> _capturedImages = [];
   bool _isReady = false;
   bool _isProcessing = false;
   int _captured = 0;
+  static const int _totalFrames = 15;
+
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+  late AnimationController _scanLineController;
 
   @override
   void initState() {
     super.initState();
     _initCamera();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _scanLineController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
   }
 
   Future<void> _initCamera() async {
@@ -47,10 +69,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   void dispose() {
     _controller?.dispose();
+    _pulseController.dispose();
+    _scanLineController.dispose();
     super.dispose();
   }
 
-  Future<void> _captureBurst({int frames = 4}) async {
+  Future<void> _captureBurst() async {
     if (_controller == null || !_isReady || _isProcessing) return;
 
     setState(() {
@@ -58,7 +82,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _captured = 0;
     });
 
-    for (int i = 0; i < frames; i++) {
+    for (int i = 0; i < _totalFrames; i++) {
       final file = await _controller!.takePicture();
       _capturedImages.add(file.path);
       if (!mounted) return;
@@ -103,68 +127,344 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(color: AppTheme.cream, fontSize: 14),
+        ),
+        backgroundColor: AppTheme.charcoal,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final progress = _captured / _totalFrames;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // ─── Camera Preview ───
           if (_controller != null && _isReady)
             Positioned.fill(child: CameraPreview(_controller!))
           else
-            const Center(child: CircularProgressIndicator()),
-
-          // Top Controls
-          Positioned(
-            top: 50,
-            left: 20,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.citrus),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Iniciando cámara...',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: AppTheme.silver,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Capture Button
+          // ─── Scan Overlay ───
+          if (_isReady)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _ScanOverlayPainter(
+                  progress: progress,
+                  scanProgress: _scanLineController.value,
+                  isCapturing: _captured > 0 || _isProcessing,
+                ),
+              ),
+            ),
+
+          // ─── Top Bar ───
           Positioned(
-            bottom: 60,
+            top: 0,
             left: 0,
             right: 0,
-            child: Column(
-              children: [
-                Text(
-                  _isProcessing ? 'Procesando...' : 'Escaneo ${_captured}/4',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 16,
+                right: 16,
+                bottom: 12,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.7),
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: _isProcessing ? null : () => _captureBurst(frames: 4),
-                  child: Container(
-                    width: 84,
-                    height: 84,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 62,
-                        height: 62,
-                        decoration: BoxDecoration(
-                          color: _isProcessing ? Colors.grey : Colors.white,
-                          shape: BoxShape.circle,
-                        ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Close button
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: AppTheme.glassDecoration(
+                        radius: AppTheme.radiusSm,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
                   ),
+
+                  // Title
+                  Text(
+                    'ESCANEAR',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 3,
+                    ),
+                  ),
+
+                  const SizedBox(width: 40), // balance
+                ],
+              ),
+            ),
+          ),
+
+          // ─── Bottom Controls ───
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom + 24,
+                top: 24,
+                left: 32,
+                right: 32,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.8),
+                    Colors.transparent,
+                  ],
                 ),
-              ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Status text
+                  AnimatedSwitcher(
+                    duration: AppTheme.fast,
+                    child: Text(
+                      _isProcessing
+                          ? 'Procesando reconocimiento...'
+                          : _captured > 0
+                              ? 'Capturando vistas  $_captured/$_totalFrames'
+                              : 'Apunta al calzado y presiona',
+                      key: ValueKey('$_captured-$_isProcessing'),
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Progress bar
+                  if (_captured > 0 || _isProcessing)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: _isProcessing ? null : progress,
+                          backgroundColor:
+                              Colors.white.withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.citrus,
+                          ),
+                          minHeight: 3,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 24),
+
+                  // Capture button
+                  GestureDetector(
+                    onTap: _isProcessing ? null : _captureBurst,
+                    child: AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) {
+                        final scale =
+                            (_captured > 0 || _isProcessing) ? 1.0 : _pulseAnimation.value;
+                        return Transform.scale(
+                          scale: scale,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _isProcessing
+                                    ? AppTheme.citrus.withValues(alpha: 0.4)
+                                    : Colors.white,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                if (!_isProcessing)
+                                  BoxShadow(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    blurRadius: 20,
+                                  ),
+                              ],
+                            ),
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: AppTheme.fast,
+                                width: _isProcessing ? 28 : 58,
+                                height: _isProcessing ? 28 : 58,
+                                decoration: BoxDecoration(
+                                  color: _isProcessing
+                                      ? AppTheme.citrus
+                                      : Colors.white,
+                                  shape: _isProcessing
+                                      ? BoxShape.rectangle
+                                      : BoxShape.circle,
+                                  borderRadius: _isProcessing
+                                      ? BorderRadius.circular(6)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+// ─── Scan Overlay Painter ───
+class _ScanOverlayPainter extends CustomPainter {
+  final double progress;
+  final double scanProgress;
+  final bool isCapturing;
+
+  _ScanOverlayPainter({
+    required this.progress,
+    required this.scanProgress,
+    required this.isCapturing,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height * 0.42);
+    final rectSize = size.width * 0.65;
+    final rect = Rect.fromCenter(
+      center: center,
+      width: rectSize,
+      height: rectSize,
+    );
+
+    // Dimmed area outside scan rect
+    final dimPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.4)
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(20)),
+      )
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, dimPaint);
+
+    // Corner accents
+    final cornerLength = 28.0;
+    final cornerPaint = Paint()
+      ..color = isCapturing ? AppTheme.citrus : Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    final corners = [
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomLeft,
+      rect.bottomRight,
+    ];
+
+    for (int i = 0; i < corners.length; i++) {
+      final c = corners[i];
+      final hDir = (i % 2 == 0) ? 1.0 : -1.0;
+      final vDir = (i < 2) ? 1.0 : -1.0;
+
+      canvas.drawLine(
+        Offset(c.dx, c.dy + vDir * 8),
+        Offset(c.dx, c.dy + vDir * cornerLength),
+        cornerPaint,
+      );
+      canvas.drawLine(
+        Offset(c.dx + hDir * 8, c.dy),
+        Offset(c.dx + hDir * cornerLength, c.dy),
+        cornerPaint,
+      );
+    }
+
+    // Scan line (only when not capturing)
+    if (!isCapturing) {
+      final scanY = rect.top + rect.height * scanProgress;
+      final scanPaint = Paint()
+        ..shader = LinearGradient(
+          colors: [
+            Colors.transparent,
+            Colors.white.withValues(alpha: 0.4),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromLTWH(rect.left, scanY - 1, rect.width, 2));
+
+      canvas.drawLine(
+        Offset(rect.left + 20, scanY),
+        Offset(rect.right - 20, scanY),
+        scanPaint..strokeWidth = 1.5,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanOverlayPainter old) => true;
 }

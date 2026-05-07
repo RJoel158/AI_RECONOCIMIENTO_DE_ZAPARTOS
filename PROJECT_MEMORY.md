@@ -57,24 +57,45 @@ Crear un modelo de IA (DL/ML) para reconocer modelos de zapatos mediante cámara
   - Ubicación exacta en almacén (pasillo/estante/nivel)
   - Recomendaciones inteligentes cuando stock = 0
 
+### Actualizaciones Recientes:
+✅ **Corrección de errores de tema**: Actualizados todas las referencias a colores del tema (`primaryBlack` → `ink`, `secondaryWhite` → `bone`)
+✅ **Corrección de warnings de código**: Eliminados underscores innecesarios, mejoradas interpolaciones de strings
+✅ **Mostrar imágenes reales**: Implementada carga directa de imágenes desde rutas locales y remotas
+✅ **Mejoras en experiencia de cámara**: 
+  - Número de frames aumentado de 4 a 15 para mayor precisión
+  - Botón de salida siempre visible en la cámara
+  - Indicador de progreso mejorado durante el escaneo
+✅ **Terminología de interfaz**: Cambiado "SKU" a "Código Producto" en todas las pantallas para mayor claridad
+✅ **REDISEÑO PREMIUM MINIMALISTA COMPLETO** (Mayo 2026):
+  - `app_theme.dart`: Paleta expandida (ink, charcoal, graphite, citrus, teal), tokens de diseño (radius, shadows, gradients, glass effects), temas de componentes premium
+  - `welcome_screen.dart`: Animación de entrada fade-in/slide-up, gradiente oscuro, botón CTA con glow
+  - `home_screen.dart`: Header personalizado con logo, search bar premium, grid de productos con cards estilizados, bottom nav con indicador activo
+  - `scanner_screen.dart`: Overlay de escaneo con esquinas animadas, scan line, botón de captura con pulso, gradientes en top/bottom bar
+  - `capture_burst_screen.dart`: UI premium consistente con scanner, overlay de captura, progress bar
+  - `capture_form_screen.dart`: Secciones con headers, inputs con iconos, imagen referencial con sombras premium
+  - `details_screen.dart`: SliverAppBar hero image, tag chips, card de ubicación con icono, stock chips verde/rojo premium
+  - `search_screen.dart`: Search bar glass, historial con contenedores de iconos, textos en español
+
 ### Arquitectura Técnica Final:
 📁 **Directorio `/ml`**: Sistema completo de IA (preprocesamiento, extractor de características, sincronización de embeddings)
 📁 **Directorio `/backend`**: API RESTful completamente funcional con todas las rutas operativas
-📁 **Directorio `/app`**: Aplicación Flutter totalmente navegables con integración backend
+📁 **Directorio `/app`**: Aplicación Flutter con UI premium minimalista e integración backend
 📁 **Directorio `/data`**: Almacenamiento de imágenes y datos de productos
 
 ## Validación Final Realizada:
-✅ Reconocimiento multi-frame probado y funcional
-✅ API backend respondiendo correctamente a todas las rutas
-✅ Navegación fluida entre todas las pantallas de la app
+✅ `flutter analyze` pasa sin errores (exit code 0)
+✅ Reconocimiento multi-frame con 15 frames
+✅ Navegación fluida entre todas las pantallas
 ✅ Manejo correcto de errores y estados de carga
-✅ Integración completa entre IA, backend y frontend
+✅ UI premium minimalista implementada en todas las pantallas
 
 ## Características Clave Activas:
-✅ **PRECISIÓN ULTRA-ALTA:** Uso de embeddings y consenso temporal multi-frame
-✅ **EXPERIENCIA DE USUARIO PREMIUM:** Interfaz intuitiva y moderna según Figma
+✅ **PRECISIÓN ULTRA-ALTA:** Embeddings + consenso temporal multi-frame (15 frames)
+✅ **UI PREMIUM MINIMALISTA:** Dark accents, citrus gradientes, Space Grotesk, glassmorphism, micro-animaciones
 ✅ **FUNCIONALIDAD OFFLINE PARCIAL:** Manejo de caché local básico
 ✅ **ESCALABILIDAD COMPLETA:** Arquitectura híbrida lista para producción
+✅ **IMÁGENES REALES:** Visualización directa de fotos en todas las pantallas
+✅ **TERMINOLOGÍA CLARA:** "Código Producto" en lugar de "SKU"
 
 ## Próximos Pasos Sugeridos:
 1. **Pruebas de Campo:** Validación con usuarios reales en tienda
@@ -83,5 +104,4 @@ Crear un modelo de IA (DL/ML) para reconocer modelos de zapatos mediante cámara
 4. **Analytics de Uso:** Métricas para mejorar experiencia de usuario
 
 ---
-*Documento actualizado automáticamente durante el desarrollo*
-*Última actualización: Sistema completo y funcional listo para ejecutar*
+*Última actualización: Rediseño Premium Minimalista completo — Mayo 2026*
